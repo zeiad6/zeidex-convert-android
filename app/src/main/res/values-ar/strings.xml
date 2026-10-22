@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Zeidex Convert</string>
+    <string name="nav_home">التحويل</string>
+    <string name="nav_wheel">العجلة</string>
+    <string name="nav_tools">الأدوات</string>
+    <string name="nav_history">السجل</string>
+    <string name="nav_settings">الإعدادات</string>
+
+    <string name="drop_files_here">المس أو شارك الملفات للتحويل</string>
+    <string name="pick_files">اختيار ملفات</string>
+    <string name="select_target_format">اختر الصيغة</string>
+    <string name="convert_button">تحويل</string>
+    <string name="converting">جارٍ التحويل…</string>
+    <string name="completed">تم بنجاح</string>
+    <string name="failed">فشل التحويل</string>
+
+    <string name="category_image">صور</string>
+    <string name="category_video">فيديو</string>
+    <string name="category_audio">صوت</string>
+    <string name="category_pdf">مستندات PDF</string>
+    <string name="category_document">مستندات</string>
+    <string name="category_archive">أرشيفات</string>
+
+    <string name="tool_compress">ضغط الحجم</string>
+    <string name="tool_crop">قص الصورة</string>
+    <string name="tool_rotate">تدوير</string>
+    <string name="tool_grayscale">أبيض وأسود</string>
+    <string name="tool_motion">استخراج فيديو الصورة الحية</string>
+    <string name="tool_extract_audio">استخراج الصوت</string>
+    <string name="tool_pdf_merge">دمج ملفات PDF</string>
+    <string name="tool_pdf_split">تقسيم PDF</string>
+    <string name="tool_qr">رمز الاستجابة QR</string>
+
+    <string name="share_result">مشاركة</string>
+    <string name="open_file">فتح</string>
+    <string name="clear_all">مسح الكل</string>
+    <string name="privacy_guarantee">محلي 100% دون إنترنت. لا يُرفع أي ملف إطلاقاً.</string>
+</resources>
