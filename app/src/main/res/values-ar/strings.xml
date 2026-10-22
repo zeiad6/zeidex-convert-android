@@ -14,6 +14,12 @@
     <string name="converting">جارٍ التحويل…</string>
     <string name="completed">تم بنجاح</string>
     <string name="failed">فشل التحويل</string>
+    <string name="task_paused">متوقف مؤقتاً</string>
+    <string name="task_resume">استئناف</string>
+    <string name="task_pause">إيقاف مؤقت</string>
+    <string name="resume_all">استئناف الكل</string>
+    <string name="pause_all">إيقاف الكل</string>
+    <string name="task_retry">إعادة المحاولة</string>
 
     <string name="category_image">صور</string>
     <string name="category_video">فيديو</string>

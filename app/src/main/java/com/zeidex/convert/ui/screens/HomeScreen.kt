@@ -25,9 +25,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -256,24 +259,73 @@ fun HomeScreen(
 
         // Conversion History
         if (tasks.isNotEmpty()) {
+            val hasPaused = tasks.any { it.status == TaskStatus.PAUSED }
+            val hasProcessing = tasks.any { it.status == TaskStatus.PROCESSING || it.status == TaskStatus.PENDING }
+
             item {
                 Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = stringResource(R.string.nav_history),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = stringResource(R.string.nav_history),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (hasPaused) {
+                            Button(
+                                onClick = { viewModel.resumeConversion() },
+                                colors = ButtonDefaults.buttonColors(containerColor = ZeidexOrange),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                            ) {
+                                Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(stringResource(R.string.resume_all), style = MaterialTheme.typography.labelMedium)
+                            }
+                        } else if (hasProcessing) {
+                            Button(
+                                onClick = { viewModel.pauseConversion() },
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp)
+                            ) {
+                                Icon(Icons.Default.Pause, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(stringResource(R.string.task_pause), style = MaterialTheme.typography.labelMedium)
+                            }
+                        }
+
+                        IconButton(onClick = { viewModel.clearHistory() }) {
+                            Icon(
+                                imageVector = Icons.Default.DeleteSweep,
+                                contentDescription = "Clear History",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
             }
 
             items(tasks) { task ->
-                TaskCard(task = task)
+                TaskCard(
+                    task = task,
+                    onPause = { viewModel.pauseTask(task.id) },
+                    onResume = { viewModel.resumeTask(task.id) }
+                )
             }
         }
     }
 }
 
 @Composable
-fun TaskCard(task: ConversionTask) {
+fun TaskCard(
+    task: ConversionTask,
+    onPause: () -> Unit = {},
+    onResume: () -> Unit = {}
+) {
     val context = LocalContext.current
 
     Card(
@@ -298,49 +350,76 @@ fun TaskCard(task: ConversionTask) {
                         text = when (task.status) {
                             TaskStatus.PENDING -> "Pending…"
                             TaskStatus.PROCESSING -> "Converting ${(task.progress * 100).toInt()}%"
+                            TaskStatus.PAUSED -> stringResource(R.string.task_paused)
                             TaskStatus.COMPLETED -> "Completed (${task.outputFile?.name})"
                             TaskStatus.FAILED -> "Failed: ${task.error}"
+                            TaskStatus.CANCELLED -> "Cancelled"
                         },
                         style = MaterialTheme.typography.bodyMedium,
                         color = when (task.status) {
                             TaskStatus.COMPLETED -> SuccessGreen
+                            TaskStatus.PAUSED -> ZeidexOrange
                             TaskStatus.FAILED -> MaterialTheme.colorScheme.error
                             else -> MaterialTheme.colorScheme.onSurfaceVariant
                         }
                     )
                 }
 
-                if (task.status == TaskStatus.COMPLETED && task.outputFile != null) {
-                    IconButton(
-                        onClick = {
-                            val uri = FileProvider.getUriForFile(
-                                context,
-                                "${context.packageName}.fileprovider",
-                                task.outputFile
-                            )
-                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                type = "*/*"
-                                putExtra(Intent.EXTRA_STREAM, uri)
-                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                // Controls based on task status
+                when (task.status) {
+                    TaskStatus.COMPLETED -> {
+                        if (task.outputFile != null) {
+                            IconButton(
+                                onClick = {
+                                    val uri = FileProvider.getUriForFile(
+                                        context,
+                                        "${context.packageName}.fileprovider",
+                                        task.outputFile
+                                    )
+                                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                        type = "*/*"
+                                        putExtra(Intent.EXTRA_STREAM, uri)
+                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    }
+                                    context.startActivity(Intent.createChooser(shareIntent, "Share"))
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Share,
+                                    contentDescription = "Share",
+                                    tint = ZeidexOrange
+                                )
                             }
-                            context.startActivity(Intent.createChooser(shareIntent, "Share"))
                         }
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Share,
-                            contentDescription = "Share",
-                            tint = ZeidexOrange
-                        )
                     }
+                    TaskStatus.PROCESSING -> {
+                        IconButton(onClick = onPause) {
+                            Icon(
+                                imageVector = Icons.Default.Pause,
+                                contentDescription = "Pause",
+                                tint = ZeidexOrange
+                            )
+                        }
+                    }
+                    TaskStatus.PAUSED, TaskStatus.FAILED -> {
+                        IconButton(onClick = onResume) {
+                            Icon(
+                                imageVector = if (task.status == TaskStatus.PAUSED) Icons.Default.PlayArrow else Icons.Default.Refresh,
+                                contentDescription = "Resume",
+                                tint = ZeidexOrange
+                            )
+                        }
+                    }
+                    else -> {}
                 }
             }
 
-            if (task.status == TaskStatus.PROCESSING) {
+            if (task.status == TaskStatus.PROCESSING || task.status == TaskStatus.PAUSED) {
                 Spacer(modifier = Modifier.height(8.dp))
                 LinearProgressIndicator(
                     progress = { task.progress },
                     modifier = Modifier.fillMaxWidth(),
-                    color = ZeidexOrange
+                    color = if (task.status == TaskStatus.PAUSED) MaterialTheme.colorScheme.secondary else ZeidexOrange
                 )
             }
         }

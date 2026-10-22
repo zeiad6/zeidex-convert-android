@@ -12,14 +12,21 @@ import com.zeidex.convert.model.ConversionTask
 import com.zeidex.convert.model.FileItem
 import com.zeidex.convert.model.Format
 import com.zeidex.convert.model.TaskStatus
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.File
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val engine = ConversionEngine(application)
+    private var conversionJob: Job? = null
+    @Volatile
+    private var isPaused = false
 
     private val _selectedFiles = MutableStateFlow<List<FileItem>>(emptyList())
     val selectedFiles: StateFlow<List<FileItem>> = _selectedFiles.asStateFlow()
@@ -32,6 +39,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _isConverting = MutableStateFlow(false)
     val isConverting: StateFlow<Boolean> = _isConverting.asStateFlow()
+
+    private val tasksStorageFile: File
+        get() = File(getApplication<Application>().filesDir, "conversion_tasks.json")
+
+    init {
+        loadTasks()
+    }
 
     fun addUris(uris: List<Uri>) {
         val context = getApplication<Application>()
@@ -110,25 +124,96 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val files = _selectedFiles.value
         if (files.isEmpty()) return
 
-        viewModelScope.launch {
-            _isConverting.value = true
-            val newTasks = files.map { file ->
-                ConversionTask(
-                    inputFile = file,
-                    targetFormat = targetFormat,
-                    status = TaskStatus.PROCESSING
-                )
-            }
-            _tasks.value = newTasks + _tasks.value
+        isPaused = false
+        val newTasks = files.map { file ->
+            ConversionTask(
+                inputFile = file,
+                targetFormat = targetFormat,
+                status = TaskStatus.PENDING
+            )
+        }
+        _tasks.value = newTasks + _tasks.value
+        clearFiles()
+        saveTasks()
 
-            newTasks.forEach { task ->
-                val result = engine.processTask(task) { prog ->
-                    updateTaskProgress(task.id, prog)
+        runTaskQueue()
+    }
+
+    fun pauseConversion() {
+        isPaused = true
+        _isConverting.value = false
+        _tasks.value = _tasks.value.map { task ->
+            if (task.status == TaskStatus.PROCESSING || task.status == TaskStatus.PENDING) {
+                task.copy(status = TaskStatus.PAUSED)
+            } else task
+        }
+        conversionJob?.cancel()
+        saveTasks()
+    }
+
+    fun resumeConversion() {
+        isPaused = false
+        _tasks.value = _tasks.value.map { task ->
+            if (task.status == TaskStatus.PAUSED) {
+                task.copy(status = TaskStatus.PENDING)
+            } else task
+        }
+        saveTasks()
+        runTaskQueue()
+    }
+
+    fun resumeTask(taskId: String) {
+        isPaused = false
+        _tasks.value = _tasks.value.map { task ->
+            if (task.id == taskId) task.copy(status = TaskStatus.PENDING, error = null) else task
+        }
+        saveTasks()
+        runTaskQueue()
+    }
+
+    fun pauseTask(taskId: String) {
+        _tasks.value = _tasks.value.map { task ->
+            if (task.id == taskId) task.copy(status = TaskStatus.PAUSED) else task
+        }
+        saveTasks()
+    }
+
+    fun clearHistory() {
+        _tasks.value = _tasks.value.filter { it.status == TaskStatus.PROCESSING || it.status == TaskStatus.PENDING }
+        saveTasks()
+    }
+
+    private fun runTaskQueue() {
+        if (_isConverting.value) return
+        conversionJob?.cancel()
+
+        conversionJob = viewModelScope.launch {
+            _isConverting.value = true
+
+            while (!isPaused) {
+                val nextTask = _tasks.value.firstOrNull { it.status == TaskStatus.PENDING } ?: break
+
+                updateTaskStatus(nextTask.id, TaskStatus.PROCESSING)
+
+                val result = engine.processTask(nextTask) { prog ->
+                    updateTaskProgress(nextTask.id, prog)
                 }
-                updateTaskResult(result)
+
+                if (isPaused) {
+                    updateTaskStatus(nextTask.id, TaskStatus.PAUSED)
+                } else {
+                    updateTaskResult(result)
+                }
+                saveTasks()
             }
+
             _isConverting.value = false
-            clearFiles()
+        }
+    }
+
+    private fun updateTaskStatus(taskId: String, status: TaskStatus) {
+        _tasks.value = _tasks.value.map {
+            if (it.id == taskId) it.copy(status = status) else it
         }
     }
 
@@ -142,5 +227,97 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _tasks.value = _tasks.value.map {
             if (it.id == task.id) task else it
         }
+    }
+
+    private fun saveTasks() {
+        try {
+            val jsonArray = JSONArray()
+            _tasks.value.forEach { t ->
+                val obj = JSONObject().apply {
+                    put("id", t.id)
+                    put("status", t.status.name)
+                    put("progress", t.progress.toDouble())
+                    put("error", t.error ?: "")
+                    put("timestamp", t.timestamp)
+                    put("outputFile", t.outputFile?.absolutePath ?: "")
+
+                    val fileObj = JSONObject().apply {
+                        put("uri", t.inputFile.uri.toString())
+                        put("name", t.inputFile.name)
+                        put("size", t.inputFile.size)
+                        put("mimeType", t.inputFile.mimeType ?: "")
+                        put("category", t.inputFile.category.name)
+                        put("ext", t.inputFile.ext)
+                    }
+                    put("inputFile", fileObj)
+
+                    val fmtObj = JSONObject().apply {
+                        put("ext", t.targetFormat.ext)
+                        put("label", t.targetFormat.label)
+                        put("category", t.targetFormat.category.name)
+                    }
+                    put("targetFormat", fmtObj)
+                }
+                jsonArray.put(obj)
+            }
+            tasksStorageFile.writeText(jsonArray.toString())
+        } catch (_: Exception) {}
+    }
+
+    private fun loadTasks() {
+        try {
+            if (!tasksStorageFile.exists()) return
+            val text = tasksStorageFile.readText()
+            if (text.isBlank()) return
+            val jsonArray = JSONArray(text)
+            val loaded = mutableListOf<ConversionTask>()
+
+            for (i in 0 until jsonArray.length()) {
+                val obj = jsonArray.getJSONObject(i)
+                val id = obj.getString("id")
+                var statusStr = obj.optString("status", "COMPLETED")
+                // If the app was closed during processing, mark it as PAUSED for resumption
+                if (statusStr == "PROCESSING" || statusStr == "PENDING") {
+                    statusStr = "PAUSED"
+                }
+                val status = try { TaskStatus.valueOf(statusStr) } catch (_: Exception) { TaskStatus.COMPLETED }
+                val progress = obj.optDouble("progress", 0.0).toFloat()
+                val error = obj.optString("error").takeIf { it.isNotEmpty() }
+                val timestamp = obj.optLong("timestamp", System.currentTimeMillis())
+                val outPath = obj.optString("outputFile").takeIf { it.isNotEmpty() }
+                val outFile = outPath?.let { File(it) }?.takeIf { it.exists() }
+
+                val fileObj = obj.getJSONObject("inputFile")
+                val uri = Uri.parse(fileObj.getString("uri"))
+                val name = fileObj.getString("name")
+                val size = fileObj.optLong("size", 0L)
+                val mimeType = fileObj.optString("mimeType").takeIf { it.isNotEmpty() }
+                val catStr = fileObj.optString("category", "DOCUMENT")
+                val category = try { Category.valueOf(catStr) } catch (_: Exception) { Category.DOCUMENT }
+                val ext = fileObj.optString("ext", "")
+                val fileItem = FileItem(uri, name, size, mimeType, category, ext)
+
+                val fmtObj = obj.getJSONObject("targetFormat")
+                val targetExt = fmtObj.getString("ext")
+                val label = fmtObj.getString("label")
+                val fmtCatStr = fmtObj.optString("category", "DOCUMENT")
+                val fmtCategory = try { Category.valueOf(fmtCatStr) } catch (_: Exception) { Category.DOCUMENT }
+                val format = Format(targetExt, label, fmtCategory)
+
+                loaded.add(
+                    ConversionTask(
+                        id = id,
+                        inputFile = fileItem,
+                        targetFormat = format,
+                        status = status,
+                        progress = progress,
+                        outputFile = outFile,
+                        error = error,
+                        timestamp = timestamp
+                    )
+                )
+            }
+            _tasks.value = loaded
+        } catch (_: Exception) {}
     }
 }

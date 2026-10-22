@@ -5,8 +5,10 @@ import java.io.File
 enum class TaskStatus {
     PENDING,
     PROCESSING,
+    PAUSED,
     COMPLETED,
-    FAILED
+    FAILED,
+    CANCELLED
 }
 
 data class ConversionTask(
@@ -18,4 +20,7 @@ data class ConversionTask(
     val outputFile: File? = null,
     val error: String? = null,
     val timestamp: Long = System.currentTimeMillis()
-)
+) {
+    val isResumable: Boolean
+        get() = status == TaskStatus.PAUSED || status == TaskStatus.FAILED
+}

@@ -14,6 +14,12 @@
     <string name="converting">Converting…</string>
     <string name="completed">Completed</string>
     <string name="failed">Failed</string>
+    <string name="task_paused">Paused</string>
+    <string name="task_resume">Resume</string>
+    <string name="task_pause">Pause</string>
+    <string name="resume_all">Resume All</string>
+    <string name="pause_all">Pause All</string>
+    <string name="task_retry">Retry</string>
 
     <string name="category_image">Images</string>
     <string name="category_video">Videos</string>

@@ -1,0 +1,165 @@
+name: Android Signed Release & Resumable Build
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version_tag:
+        description: 'Release Tag (e.g. v1.0.0)'
+        required: true
+        default: 'v1.0.0'
+      release_title:
+        description: 'Release Title'
+        required: false
+        default: 'Zeidex Convert Android v1.0.0 (Signed Release)'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build Signed APK & AAB
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Cache Gradle Build Cache & Resumption Data
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            .gradle/configuration-cache
+            app/build/intermediates
+          key: ${{ runner.os }}-gradle-release-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/libs.versions.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-release-
+            ${{ runner.os }}-gradle-
+
+      - name: Make Gradlew Executable
+        run: chmod +x gradlew
+
+      - name: Prepare Signing Keystore
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD || 'zeidex_keystore_pass_2026' }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS || 'zeidex' }}
+          KEY_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD || 'zeidex_keystore_pass_2026' }}
+        run: |
+          mkdir -p keystore
+          if [ -n "$RELEASE_KEYSTORE_BASE64" ]; then
+            echo "Using provided secret keystore..."
+            echo "$RELEASE_KEYSTORE_BASE64" | base64 --decode > keystore/release.keystore
+          else
+            echo "Auto-generating production release keystore for signing..."
+            keytool -genkeypair -v \
+              -keystore keystore/release.keystore \
+              -alias "$KEY_ALIAS" \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -storepass "$KEYSTORE_PASSWORD" \
+              -keypass "$KEYSTORE_PASSWORD" \
+              -dname "CN=Zeidex Convert, OU=Mobile, O=Zeidex, C=US"
+          fi
+
+      - name: Build Signed Release APK & Bundle
+        env:
+          KEYSTORE_PATH: keystore/release.keystore
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD || 'zeidex_keystore_pass_2026' }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS || 'zeidex' }}
+          KEY_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD || 'zeidex_keystore_pass_2026' }}
+        run: |
+          ./gradlew assembleRelease bundleRelease --build-cache --no-daemon
+
+      - name: Verify Signed APK with Apksigner
+        run: |
+          APK_PATH=$(find app/build/outputs/apk/release -name "*.apk" | head -n 1)
+          echo "Found release APK at: $APK_PATH"
+          if command -v apksigner &> /dev/null; then
+            apksigner verify --verbose "$APK_PATH"
+          else
+            $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose "$APK_PATH"
+          fi
+
+      - name: Package Artifacts & Generate SHA-256 Checksums
+        run: |
+          mkdir -p release_assets
+          TAG_NAME="${{ github.event.inputs.version_tag || github.ref_name }}"
+          
+          APK_FILE=$(find app/build/outputs/apk/release -name "*.apk" | head -n 1)
+          AAB_FILE=$(find app/build/outputs/bundle/release -name "*.aab" | head -n 1)
+          
+          cp "$APK_FILE" "release_assets/zeidex-convert-${TAG_NAME}.apk"
+          if [ -f "$AAB_FILE" ]; then
+            cp "$AAB_FILE" "release_assets/zeidex-convert-${TAG_NAME}.aab"
+          fi
+          
+          cd release_assets
+          sha256sum * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Upload Build Artifacts (Resumable storage)
+        uses: actions/upload-artifact@v4
+        with:
+          name: zeidex-convert-signed-release
+          path: release_assets/
+          retention-days: 90
+
+      - name: Create or Update GitHub Release with Resumable Upload
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG_NAME="${{ github.event.inputs.version_tag || github.ref_name }}"
+          TITLE="${{ github.event.inputs.release_title || github.ref_name }}"
+          
+          echo "Checking if tag $TAG_NAME exists locally..."
+          git tag -f "$TAG_NAME" || true
+          git push origin -f "$TAG_NAME" || true
+          
+          # Resumable release creation / upload with retry
+          echo "Creating GitHub Release with assets..."
+          MAX_RETRIES=5
+          COUNT=0
+          SUCCESS=0
+          
+          while [ $COUNT -lt $MAX_RETRIES ]; do
+            echo "Attempt $((COUNT+1)) to upload release assets..."
+            if gh release view "$TAG_NAME" > /dev/null 2>&1; then
+              gh release upload "$TAG_NAME" release_assets/* --clobber && SUCCESS=1 && break
+            else
+              gh release create "$TAG_NAME" release_assets/* \
+                --title "$TITLE" \
+                --notes "### Zeidex Convert for Android ⚡📱 (Signed Release)
+          
+          100% Offline & Private Local File Converter.
+          
+          #### What's in this release:
+          - **Signed APK**: \`zeidex-convert-${TAG_NAME}.apk\` (Direct install on Android 8.0+)
+          - **Android App Bundle (AAB)**: \`zeidex-convert-${TAG_NAME}.aab\` (For Google Play / distribution)
+          - **Checksums**: \`SHA256SUMS.txt\`
+          - **Resumable Conversions**: In-app task pause, resume, and persistent task recovery across restarts
+          - **Offline First**: Zero internet permissions requested." && SUCCESS=1 && break
+            fi
+            COUNT=$((COUNT+1))
+            sleep 5
+          done
+          
+          if [ $SUCCESS -ne 1 ]; then
+            echo "Failed to upload release after $MAX_RETRIES attempts."
+            exit 1
+          fi
+          echo "Release created and signed assets uploaded successfully!"
