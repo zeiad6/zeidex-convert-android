@@ -59,7 +59,7 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS || 'zeidex' }}
           KEY_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD || 'zeidex_keystore_pass_2026' }}
         run: |
-          mkdir -p keystore
+          mkdir -p keystore app/keystore
           if [ -n "$RELEASE_KEYSTORE_BASE64" ]; then
             echo "Using provided secret keystore..."
             echo "$RELEASE_KEYSTORE_BASE64" | base64 --decode > keystore/release.keystore
@@ -75,10 +75,11 @@ jobs:
               -keypass "$KEYSTORE_PASSWORD" \
               -dname "CN=Zeidex Convert, OU=Mobile, O=Zeidex, C=US"
           fi
+          cp keystore/release.keystore app/keystore/release.keystore
 
       - name: Build Signed Release APK & Bundle
         env:
-          KEYSTORE_PATH: keystore/release.keystore
+          KEYSTORE_PATH: ${{ github.workspace }}/keystore/release.keystore
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD || 'zeidex_keystore_pass_2026' }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS || 'zeidex' }}
           KEY_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD || 'zeidex_keystore_pass_2026' }}
@@ -114,6 +115,7 @@ jobs:
 
       - name: Upload Build Artifacts (Resumable storage)
         uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
           name: zeidex-convert-signed-release
           path: release_assets/
@@ -126,12 +128,8 @@ jobs:
           TAG_NAME="${{ github.event.inputs.version_tag || github.ref_name }}"
           TITLE="${{ github.event.inputs.release_title || github.ref_name }}"
           
-          echo "Checking if tag $TAG_NAME exists locally..."
-          git tag -f "$TAG_NAME" || true
-          git push origin -f "$TAG_NAME" || true
-          
           # Resumable release creation / upload with retry
-          echo "Creating GitHub Release with assets..."
+          echo "Uploading release assets for $TAG_NAME..."
           MAX_RETRIES=5
           COUNT=0
           SUCCESS=0
@@ -143,6 +141,20 @@ jobs:
             else
               gh release create "$TAG_NAME" release_assets/* \
                 --title "$TITLE" \
+                --notes "### Zeidex Convert for Android ⚡📱 (Signed Release)
+          
+          100% Offline & Private Local File Converter.
+          
+          #### What's in this release:
+          - **Signed APK**: \`zeidex-convert-${TAG_NAME}.apk\` (Direct install on Android 8.0+)
+          - **Android App Bundle (AAB)**: \`zeidex-convert-${TAG_NAME}.aab\` (For Google Play / distribution)
+          - **Checksums**: \`SHA256SUMS.txt\`
+          - **Resumable Conversions**: In-app task pause, resume, and persistent task recovery across restarts
+          - **Offline First**: Zero internet permissions requested." && SUCCESS=1 && break
+            fi
+            COUNT=$((COUNT+1))
+            sleep 5
+          done
                 --notes "### Zeidex Convert for Android ⚡📱 (Signed Release)
           
           100% Offline & Private Local File Converter.
