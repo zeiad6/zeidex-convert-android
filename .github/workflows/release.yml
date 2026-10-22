@@ -128,7 +128,19 @@ jobs:
           TAG_NAME="${{ github.event.inputs.version_tag || github.ref_name }}"
           TITLE="${{ github.event.inputs.release_title || github.ref_name }}"
           
-          # Resumable release creation / upload with retry
+          cat << 'EOF' > release_notes.md
+### Zeidex Convert for Android ⚡📱 (Signed Release)
+
+100% Offline & Private Local File Converter.
+
+#### What's in this release:
+- **Signed APK**: `zeidex-convert-v1.0.0.apk` (Direct install on Android 8.0+)
+- **Android App Bundle (AAB)**: `zeidex-convert-v1.0.0.aab` (For Google Play / distribution)
+- **Checksums**: `SHA256SUMS.txt`
+- **Resumable Conversions**: In-app task pause, resume, and persistent task recovery across restarts
+- **Offline First**: Zero internet permissions requested.
+EOF
+
           echo "Uploading release assets for $TAG_NAME..."
           MAX_RETRIES=5
           COUNT=0
@@ -139,32 +151,7 @@ jobs:
             if gh release view "$TAG_NAME" > /dev/null 2>&1; then
               gh release upload "$TAG_NAME" release_assets/* --clobber && SUCCESS=1 && break
             else
-              gh release create "$TAG_NAME" release_assets/* \
-                --title "$TITLE" \
-                --notes "### Zeidex Convert for Android ⚡📱 (Signed Release)
-          
-          100% Offline & Private Local File Converter.
-          
-          #### What's in this release:
-          - **Signed APK**: \`zeidex-convert-${TAG_NAME}.apk\` (Direct install on Android 8.0+)
-          - **Android App Bundle (AAB)**: \`zeidex-convert-${TAG_NAME}.aab\` (For Google Play / distribution)
-          - **Checksums**: \`SHA256SUMS.txt\`
-          - **Resumable Conversions**: In-app task pause, resume, and persistent task recovery across restarts
-          - **Offline First**: Zero internet permissions requested." && SUCCESS=1 && break
-            fi
-            COUNT=$((COUNT+1))
-            sleep 5
-          done
-                --notes "### Zeidex Convert for Android ⚡📱 (Signed Release)
-          
-          100% Offline & Private Local File Converter.
-          
-          #### What's in this release:
-          - **Signed APK**: \`zeidex-convert-${TAG_NAME}.apk\` (Direct install on Android 8.0+)
-          - **Android App Bundle (AAB)**: \`zeidex-convert-${TAG_NAME}.aab\` (For Google Play / distribution)
-          - **Checksums**: \`SHA256SUMS.txt\`
-          - **Resumable Conversions**: In-app task pause, resume, and persistent task recovery across restarts
-          - **Offline First**: Zero internet permissions requested." && SUCCESS=1 && break
+              gh release create "$TAG_NAME" release_assets/* --title "$TITLE" --notes-file release_notes.md && SUCCESS=1 && break
             fi
             COUNT=$((COUNT+1))
             sleep 5
