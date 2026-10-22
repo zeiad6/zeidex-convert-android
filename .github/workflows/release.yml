@@ -55,10 +55,11 @@ jobs:
       - name: Prepare Signing Keystore
         env:
           RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD || 'zeidex_keystore_pass_2026' }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS || 'zeidex' }}
-          KEY_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD || 'zeidex_keystore_pass_2026' }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: |
+          KS_PASS="${KEYSTORE_PASSWORD:-zeidex_keystore_pass_2026}"
+          KS_ALIAS="${KEY_ALIAS:-zeidex}"
           mkdir -p keystore app/keystore
           if [ -n "$RELEASE_KEYSTORE_BASE64" ]; then
             echo "Using provided secret keystore..."
@@ -67,12 +68,12 @@ jobs:
             echo "Auto-generating production release keystore for signing..."
             keytool -genkeypair -v \
               -keystore keystore/release.keystore \
-              -alias "$KEY_ALIAS" \
+              -alias "$KS_ALIAS" \
               -keyalg RSA \
               -keysize 2048 \
               -validity 10000 \
-              -storepass "$KEYSTORE_PASSWORD" \
-              -keypass "$KEYSTORE_PASSWORD" \
+              -storepass "$KS_PASS" \
+              -keypass "$KS_PASS" \
               -dname "CN=Zeidex Convert, OU=Mobile, O=Zeidex, C=US"
           fi
           cp keystore/release.keystore app/keystore/release.keystore
@@ -80,10 +81,12 @@ jobs:
       - name: Build Signed Release APK & Bundle
         env:
           KEYSTORE_PATH: ${{ github.workspace }}/keystore/release.keystore
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD || 'zeidex_keystore_pass_2026' }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS || 'zeidex' }}
-          KEY_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD || 'zeidex_keystore_pass_2026' }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: |
+          export KEYSTORE_PASSWORD="${KEYSTORE_PASSWORD:-zeidex_keystore_pass_2026}"
+          export KEY_ALIAS="${KEY_ALIAS:-zeidex}"
+          export KEY_PASSWORD="$KEYSTORE_PASSWORD"
           ./gradlew assembleRelease bundleRelease --build-cache --no-daemon
 
       - name: Verify Signed APK with Apksigner
@@ -99,7 +102,10 @@ jobs:
       - name: Package Artifacts & Generate SHA-256 Checksums
         run: |
           mkdir -p release_assets
-          TAG_NAME="${{ github.event.inputs.version_tag || github.ref_name }}"
+          TAG_NAME="${{ inputs.version_tag }}"
+          if [ -z "$TAG_NAME" ] || [ "$TAG_NAME" = "null" ]; then
+            TAG_NAME="${{ github.ref_name }}"
+          fi
           
           APK_FILE=$(find app/build/outputs/apk/release -name "*.apk" | head -n 1)
           AAB_FILE=$(find app/build/outputs/bundle/release -name "*.aab" | head -n 1)
@@ -125,21 +131,27 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG_NAME="${{ github.event.inputs.version_tag || github.ref_name }}"
-          TITLE="${{ github.event.inputs.release_title || github.ref_name }}"
-          
+          TAG_NAME="${{ inputs.version_tag }}"
+          if [ -z "$TAG_NAME" ] || [ "$TAG_NAME" = "null" ]; then
+            TAG_NAME="${{ github.ref_name }}"
+          fi
+          TITLE="${{ inputs.release_title }}"
+          if [ -z "$TITLE" ] || [ "$TITLE" = "null" ]; then
+            TITLE="Zeidex Convert Android ${TAG_NAME} (Signed Release)"
+          fi
+
           cat << 'EOF' > release_notes.md
-### Zeidex Convert for Android ⚡📱 (Signed Release)
+          ### Zeidex Convert for Android (Signed Release)
 
-100% Offline & Private Local File Converter.
+          100% Offline & Private Local File Converter.
 
-#### What's in this release:
-- **Signed APK**: `zeidex-convert-v1.0.0.apk` (Direct install on Android 8.0+)
-- **Android App Bundle (AAB)**: `zeidex-convert-v1.0.0.aab` (For Google Play / distribution)
-- **Checksums**: `SHA256SUMS.txt`
-- **Resumable Conversions**: In-app task pause, resume, and persistent task recovery across restarts
-- **Offline First**: Zero internet permissions requested.
-EOF
+          #### What is in this release:
+          - Signed APK: Direct install on Android 8.0+
+          - Android App Bundle (AAB): For Google Play and distribution
+          - Checksums: SHA256SUMS.txt
+          - Resumable Conversions: In-app task pause, resume, and persistent task recovery
+          - Offline First: Zero internet permissions requested.
+          EOF
 
           echo "Uploading release assets for $TAG_NAME..."
           MAX_RETRIES=5
