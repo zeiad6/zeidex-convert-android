@@ -14,5 +14,4 @@ app/build/
 keystore/
 *.keystore
 *.jks
-release/*.apk
 release_assets/

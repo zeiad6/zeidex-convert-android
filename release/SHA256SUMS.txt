@@ -1,1 +1,4 @@
+3e394fc8a47dd5cd2679460bbb86e4e012871a68cf5c573826ea8c480dc51448  zeidex-convert-latest.apk
+ad5afd639536977907622ecfee4fa8de79d77c5f224dfd8ea3fd7be1aee79fc7  zeidex-convert-v1.0.0-signed.apk
 bb2dfbc5eaa995829eff586ed2710a2adb0d433775abed57d601503ba1cd11a8  zeidex-convert-v1.1.0.apk
+3e394fc8a47dd5cd2679460bbb86e4e012871a68cf5c573826ea8c480dc51448  zeidex-convert-v1.2.0.apk
