@@ -468,32 +468,64 @@ fun TaskCard(
                             else -> MaterialTheme.colorScheme.onSurfaceVariant
                         }
                     )
+                    if (task.status == TaskStatus.COMPLETED && task.outputFile != null) {
+                        Text(
+                            text = "المسار: ${task.outputFile.absolutePath}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
 
                 // Controls based on task status
                 when (task.status) {
                     TaskStatus.COMPLETED -> {
                         if (task.outputFile != null) {
-                            IconButton(
-                                onClick = {
-                                    val uri = FileProvider.getUriForFile(
-                                        context,
-                                        "${context.packageName}.fileprovider",
-                                        task.outputFile
-                                    )
-                                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                        type = "*/*"
-                                        putExtra(Intent.EXTRA_STREAM, uri)
-                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            Row {
+                                IconButton(
+                                    onClick = {
+                                        val uri = FileProvider.getUriForFile(
+                                            context,
+                                            "${context.packageName}.fileprovider",
+                                            task.outputFile
+                                        )
+                                        val mime = if (task.outputFile.extension.equals("mp4", true)) "video/mp4" else "*/*"
+                                        val viewIntent = Intent(Intent.ACTION_VIEW).apply {
+                                            setDataAndType(uri, mime)
+                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        }
+                                        context.startActivity(Intent.createChooser(viewIntent, "Open"))
                                     }
-                                    context.startActivity(Intent.createChooser(shareIntent, "Share"))
+                                ) {
+                                    Icon(
+                                        imageVector = if (task.outputFile.extension.equals("mp4", true)) Icons.Default.PlayArrow else Icons.Default.Folder,
+                                        contentDescription = "Open",
+                                        tint = SuccessGreen
+                                    )
                                 }
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Share,
-                                    contentDescription = "Share",
-                                    tint = ZeidexOrange
-                                )
+
+                                IconButton(
+                                    onClick = {
+                                        val uri = FileProvider.getUriForFile(
+                                            context,
+                                            "${context.packageName}.fileprovider",
+                                            task.outputFile
+                                        )
+                                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                            type = "*/*"
+                                            putExtra(Intent.EXTRA_STREAM, uri)
+                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                        }
+                                        context.startActivity(Intent.createChooser(shareIntent, "Share"))
+                                    }
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Share,
+                                        contentDescription = "Share",
+                                        tint = ZeidexOrange
+                                    )
+                                }
                             }
                         }
                     }

@@ -5,9 +5,7 @@ import android.graphics.Bitmap
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,12 +21,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.QrCode
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Tune
@@ -41,13 +38,17 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -55,7 +56,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -67,8 +67,10 @@ import com.zeidex.convert.engine.ImageConverter
 import com.zeidex.convert.engine.MotionPhotoExtractor
 import com.zeidex.convert.engine.PdfConverter
 import com.zeidex.convert.engine.QrEngine
+import com.zeidex.convert.engine.VideoEnhancer
 import com.zeidex.convert.model.Category
 import com.zeidex.convert.model.FileItem
+import com.zeidex.convert.service.ConversionForegroundService
 import com.zeidex.convert.ui.theme.SuccessGreen
 import com.zeidex.convert.ui.theme.ZeidexOrange
 import com.zeidex.convert.ui.viewmodel.MainViewModel
@@ -89,7 +91,7 @@ fun ToolsScreen(
         stringResource(R.string.tool_qr),
         stringResource(R.string.tool_motion),
         stringResource(R.string.tool_pdf_merge),
-        stringResource(R.string.tool_compress)
+        stringResource(R.string.tool_enhance)
     )
 
     Column(
@@ -128,7 +130,7 @@ fun ToolsScreen(
                 0 -> QrToolView()
                 1 -> MotionPhotoToolView()
                 2 -> PdfToolView()
-                3 -> ImageEffectsToolView()
+                3 -> EnhanceToolView()
             }
         }
     }
@@ -188,9 +190,16 @@ fun QrToolView() {
             onClick = {
                 if (qrText.isNotBlank()) {
                     val file = QrEngine.saveQrToFile(context, qrText, "qr_${System.currentTimeMillis()}.png")
-                    Toast.makeText(context, "Saved to Download/ZeidexConvert/QR/", Toast.LENGTH_SHORT).show()
+                    val saved = StorageManager.saveToPhoneStorage(context, file, specialName = "QR")
+                    ConversionForegroundService.showCompletionNotification(
+                        context = context,
+                        title = "Zeidex Convert • رمز QR",
+                        message = "تم حفظ رمز QR في:\n${saved.absolutePath}",
+                        file = saved
+                    )
+                    Toast.makeText(context, "Saved to ${saved.absolutePath}", Toast.LENGTH_SHORT).show()
 
-                    val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                    val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", saved)
                     val shareIntent = Intent(Intent.ACTION_SEND).apply {
                         type = "image/png"
                         putExtra(Intent.EXTRA_STREAM, uri)
@@ -205,9 +214,9 @@ fun QrToolView() {
             shape = RoundedCornerShape(16.dp),
             colors = ButtonDefaults.buttonColors(containerColor = ZeidexOrange)
         ) {
-            Icon(imageVector = Icons.Default.Share, contentDescription = null)
+            Icon(imageVector = Icons.Default.QrCode, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
-            Text(stringResource(R.string.share_result), fontWeight = FontWeight.Bold)
+            Text("Save & Share QR Code", fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -228,18 +237,18 @@ fun MotionPhotoToolView() {
             var name = "motion_photo.jpg"
             var size = 0L
             context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-                val nameIndex = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
-                val sizeIndex = cursor.getColumnIndex(android.provider.OpenableColumns.SIZE)
+                val nameIdx = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                val sizeIdx = cursor.getColumnIndex(android.provider.OpenableColumns.SIZE)
                 if (cursor.moveToFirst()) {
-                    if (nameIndex != -1) name = cursor.getString(nameIndex) ?: name
-                    if (sizeIndex != -1) size = cursor.getLong(sizeIndex)
+                    if (nameIdx != -1) name = cursor.getString(nameIdx) ?: name
+                    if (sizeIdx != -1) size = cursor.getLong(sizeIdx)
                 }
             }
             selectedFileItem = FileItem(
                 uri = uri,
                 name = name,
                 size = size,
-                mimeType = "image/jpeg",
+                mimeType = "image/*",
                 category = Category.IMAGE,
                 ext = name.substringAfterLast('.', "jpg")
             )
@@ -257,7 +266,7 @@ fun MotionPhotoToolView() {
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-            onClick = { picker.launch(arrayOf("image/*", "application/octet-stream")) }
+            onClick = { picker.launch(arrayOf("*/*")) }
         ) {
             Column(
                 modifier = Modifier
@@ -278,7 +287,7 @@ fun MotionPhotoToolView() {
                     style = MaterialTheme.typography.titleMedium
                 )
                 Text(
-                    text = "Pixel & Samsung Motion Photo (XMP) or Apple Live Photo",
+                    text = "Pixel & Samsung Motion Photo (XMP) or Apple Live Photo (.livp / HEIC / MOV)",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -332,30 +341,66 @@ fun MotionPhotoToolView() {
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = SuccessGreen.copy(alpha = 0.15f))
             ) {
-                Row(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Video Extracted Successfully!", fontWeight = FontWeight.Bold, color = SuccessGreen)
-                        Text(video.name, style = MaterialTheme.typography.bodySmall)
-                    }
+                    Text(
+                        text = stringResource(R.string.live_photo_saved),
+                        fontWeight = FontWeight.Bold,
+                        color = SuccessGreen,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Text(
+                        text = "${video.name} • ${video.length() / 1024} KB",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = "المسار: ${video.absolutePath}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
 
-                    IconButton(
-                        onClick = {
-                            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", video)
-                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                type = "video/mp4"
-                                putExtra(Intent.EXTRA_STREAM, uri)
-                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                            }
-                            context.startActivity(Intent.createChooser(shareIntent, "Share Video"))
-                        }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Icon(imageVector = Icons.Default.Share, contentDescription = "Share", tint = ZeidexOrange)
+                        Button(
+                            onClick = {
+                                val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", video)
+                                val playIntent = Intent(Intent.ACTION_VIEW).apply {
+                                    setDataAndType(uri, "video/mp4")
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                context.startActivity(Intent.createChooser(playIntent, "Play Video"))
+                            },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = SuccessGreen)
+                        ) {
+                            Icon(imageVector = Icons.Default.PlayArrow, contentDescription = null)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(stringResource(R.string.play_video))
+                        }
+
+                        OutlinedButton(
+                            onClick = {
+                                val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", video)
+                                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                    type = "video/mp4"
+                                    putExtra(Intent.EXTRA_STREAM, uri)
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                }
+                                context.startActivity(Intent.createChooser(shareIntent, "Share Video"))
+                            },
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(imageVector = Icons.Default.Share, contentDescription = null, tint = ZeidexOrange)
+                        }
                     }
                 }
             }
@@ -440,7 +485,14 @@ fun PdfToolView() {
                             val pdf = withContext(Dispatchers.IO) {
                                 PdfConverter.imagesToPdf(context, selectedImages, outDir, "merged_${System.currentTimeMillis()}.pdf")
                             }
-                            mergedPdf = pdf
+                            val saved = StorageManager.saveToPhoneStorage(context, pdf, Category.PDF)
+                            ConversionForegroundService.showCompletionNotification(
+                                context = context,
+                                title = "Zeidex Convert • تم إنشاء ملف PDF",
+                                message = "تم حفظ ملف PDF في:\n${saved.absolutePath}",
+                                file = saved
+                            )
+                            mergedPdf = saved
                         } catch (e: Exception) {
                             Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
                         } finally {
@@ -471,30 +523,51 @@ fun PdfToolView() {
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = SuccessGreen.copy(alpha = 0.15f))
             ) {
-                Row(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("PDF Created!", fontWeight = FontWeight.Bold, color = SuccessGreen)
-                        Text(pdf.name, style = MaterialTheme.typography.bodySmall)
-                    }
+                    Text("PDF Created Successfully!", fontWeight = FontWeight.Bold, color = SuccessGreen)
+                    Text(pdf.name, style = MaterialTheme.typography.bodySmall)
+                    Text("المسار: ${pdf.absolutePath}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
-                    IconButton(
-                        onClick = {
-                            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", pdf)
-                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                type = "application/pdf"
-                                putExtra(Intent.EXTRA_STREAM, uri)
-                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                            }
-                            context.startActivity(Intent.createChooser(shareIntent, "Share PDF"))
-                        }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Icon(imageVector = Icons.Default.Share, contentDescription = "Share", tint = ZeidexOrange)
+                        Button(
+                            onClick = {
+                                val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", pdf)
+                                val viewIntent = Intent(Intent.ACTION_VIEW).apply {
+                                    setDataAndType(uri, "application/pdf")
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                context.startActivity(Intent.createChooser(viewIntent, "Open PDF"))
+                            },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = SuccessGreen)
+                        ) {
+                            Text(stringResource(R.string.open_file))
+                        }
+
+                        OutlinedButton(
+                            onClick = {
+                                val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", pdf)
+                                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                    type = "application/pdf"
+                                    putExtra(Intent.EXTRA_STREAM, uri)
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                }
+                                context.startActivity(Intent.createChooser(shareIntent, "Share PDF"))
+                            },
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(imageVector = Icons.Default.Share, contentDescription = "Share", tint = ZeidexOrange)
+                        }
                     }
                 }
             }
@@ -503,22 +576,35 @@ fun PdfToolView() {
 }
 
 @Composable
-fun ImageEffectsToolView() {
+fun EnhanceToolView() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var selectedItem by remember { mutableStateOf<FileItem?>(null) }
+    var isVideo by remember { mutableStateOf(false) }
+
+    // Video options
+    var videoMode by remember { mutableStateOf(VideoEnhancer.EnhancementMode.FHD_UPSCALE) }
+
+    // Image options
+    var sharpen by remember { mutableStateOf(true) }
+    var autoContrast by remember { mutableStateOf(true) }
+    var upscale2x by remember { mutableStateOf(false) }
     var grayscale by remember { mutableStateOf(false) }
-    var rotation by remember { mutableStateOf(0f) }
-    var quality by remember { mutableStateOf(85) }
+    var targetImgExt by remember { mutableStateOf("jpg") }
+    var quality by remember { mutableFloatStateOf(90f) }
+
     var processedFile by remember { mutableStateOf<File?>(null) }
     var isProcessing by remember { mutableStateOf(false) }
+    var progress by remember { mutableFloatStateOf(0f) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
 
     val picker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
         if (uri != null) {
-            var name = "image.jpg"
+            var name = "media_file"
             var size = 0L
+            var mime: String? = null
             context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
                 val nameIdx = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
                 val sizeIdx = cursor.getColumnIndex(android.provider.OpenableColumns.SIZE)
@@ -527,8 +613,17 @@ fun ImageEffectsToolView() {
                     if (sizeIdx != -1) size = cursor.getLong(sizeIdx)
                 }
             }
-            selectedItem = FileItem(uri, name, size, "image/*", Category.IMAGE, name.substringAfterLast('.', "jpg"))
+            mime = context.contentResolver.getType(uri) ?: ""
+            val ext = name.substringAfterLast('.', "")
+            val cat = when {
+                mime.startsWith("video/") || ext.lowercase() in listOf("mp4", "mkv", "mov", "avi", "3gp", "webm") -> Category.VIDEO
+                else -> Category.IMAGE
+            }
+            isVideo = (cat == Category.VIDEO)
+            selectedItem = FileItem(uri, name, size, mime, cat, ext)
             processedFile = null
+            errorMessage = null
+            progress = 0f
         }
     }
 
@@ -540,7 +635,7 @@ fun ImageEffectsToolView() {
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-            onClick = { picker.launch(arrayOf("image/*")) }
+            onClick = { picker.launch(arrayOf("image/*", "video/*", "*/*")) }
         ) {
             Row(
                 modifier = Modifier
@@ -557,12 +652,12 @@ fun ImageEffectsToolView() {
                 Spacer(modifier = Modifier.width(16.dp))
                 Column {
                     Text(
-                        text = selectedItem?.name ?: "Select Image for Enhancements",
+                        text = selectedItem?.name ?: stringResource(R.string.tool_enhance),
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.titleMedium
                     )
                     Text(
-                        text = "Grayscale filter, 90° rotation, and size compression",
+                        text = if (isVideo) stringResource(R.string.video_enhance_title) else stringResource(R.string.image_enhance_title),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -571,26 +666,91 @@ fun ImageEffectsToolView() {
         }
 
         if (selectedItem != null) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                FilterChip(
-                    selected = grayscale,
-                    onClick = { grayscale = !grayscale },
-                    label = { Text(stringResource(R.string.tool_grayscale)) }
-                )
+            if (isVideo) {
+                // Video Enhancement Controls
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(R.string.video_enhance_title), fontWeight = FontWeight.Bold)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        FilterChip(
+                            selected = videoMode == VideoEnhancer.EnhancementMode.FHD_UPSCALE,
+                            onClick = { videoMode = VideoEnhancer.EnhancementMode.FHD_UPSCALE },
+                            label = { Text(stringResource(R.string.video_upscale_1080p)) }
+                        )
+                        FilterChip(
+                            selected = videoMode == VideoEnhancer.EnhancementMode.BALANCED,
+                            onClick = { videoMode = VideoEnhancer.EnhancementMode.BALANCED },
+                            label = { Text("Bitrate Boost") }
+                        )
+                        FilterChip(
+                            selected = videoMode == VideoEnhancer.EnhancementMode.AUDIO_BOOST,
+                            onClick = { videoMode = VideoEnhancer.EnhancementMode.AUDIO_BOOST },
+                            label = { Text("Audio Boost") }
+                        )
+                    }
+                }
+            } else {
+                // Image Enhancement Controls
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(stringResource(R.string.image_enhance_title), fontWeight = FontWeight.Bold)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        FilterChip(
+                            selected = sharpen,
+                            onClick = { sharpen = !sharpen },
+                            label = { Text(stringResource(R.string.sharpen_details)) }
+                        )
+                        FilterChip(
+                            selected = autoContrast,
+                            onClick = { autoContrast = !autoContrast },
+                            label = { Text(stringResource(R.string.auto_contrast)) }
+                        )
+                        FilterChip(
+                            selected = upscale2x,
+                            onClick = { upscale2x = !upscale2x },
+                            label = { Text(stringResource(R.string.upscale_2x)) }
+                        )
+                    }
 
-                FilterChip(
-                    selected = rotation == 90f,
-                    onClick = { rotation = if (rotation == 90f) 0f else 90f },
-                    label = { Text("${stringResource(R.string.tool_rotate)} 90°") }
-                )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        FilterChip(
+                            selected = grayscale,
+                            onClick = { grayscale = !grayscale },
+                            label = { Text(stringResource(R.string.tool_grayscale)) }
+                        )
 
-                FilterChip(
-                    selected = rotation == 180f,
-                    onClick = { rotation = if (rotation == 180f) 0f else 180f },
-                    label = { Text("${stringResource(R.string.tool_rotate)} 180°") }
+                        listOf("jpg", "png", "webp", "bmp").forEach { fmt ->
+                            FilterChip(
+                                selected = targetImgExt == fmt,
+                                onClick = { targetImgExt = fmt },
+                                label = { Text(fmt.uppercase()) }
+                            )
+                        }
+                    }
+
+                    Column {
+                        Text("Quality: ${quality.toInt()}%", style = MaterialTheme.typography.bodySmall)
+                        Slider(
+                            value = quality,
+                            onValueChange = { quality = it },
+                            valueRange = 50f..100f
+                        )
+                    }
+                }
+            }
+
+            if (isProcessing) {
+                LinearProgressIndicator(
+                    progress = { progress },
+                    modifier = Modifier.fillMaxWidth().height(8.dp),
+                    color = ZeidexOrange
                 )
             }
 
@@ -598,23 +758,39 @@ fun ImageEffectsToolView() {
                 onClick = {
                     val item = selectedItem ?: return@Button
                     isProcessing = true
+                    errorMessage = null
                     scope.launch {
                         try {
-                            val outDir = StorageManager.getSubfolder(context, Category.IMAGE)
-                            val res = withContext(Dispatchers.IO) {
-                                ImageConverter.convertImage(
-                                    context = context,
-                                    input = item,
-                                    targetExt = "jpg",
-                                    outputDir = outDir,
-                                    quality = quality,
-                                    grayscale = grayscale,
-                                    rotateDegrees = rotation
-                                )
+                            if (isVideo) {
+                                val outDir = StorageManager.getSubfolder(context, Category.VIDEO)
+                                val res = withContext(Dispatchers.IO) {
+                                    VideoEnhancer.enhanceVideo(
+                                        context = context,
+                                        input = item,
+                                        outputDir = outDir,
+                                        mode = videoMode
+                                    ) { p -> progress = p }
+                                }
+                                processedFile = res
+                            } else {
+                                val outDir = StorageManager.getSubfolder(context, Category.IMAGE)
+                                val res = withContext(Dispatchers.IO) {
+                                    ImageConverter.convertImage(
+                                        context = context,
+                                        input = item,
+                                        targetExt = targetImgExt,
+                                        outputDir = outDir,
+                                        quality = quality.toInt(),
+                                        grayscale = grayscale,
+                                        sharpen = sharpen,
+                                        autoEnhance = autoContrast,
+                                        upscale2x = upscale2x
+                                    )
+                                }
+                                processedFile = res
                             }
-                            processedFile = res
                         } catch (e: Exception) {
-                            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                            errorMessage = e.localizedMessage ?: "Enhancement failed: ${e.message}"
                         } finally {
                             isProcessing = false
                         }
@@ -630,11 +806,15 @@ fun ImageEffectsToolView() {
                 if (isProcessing) {
                     CircularProgressIndicator(color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(24.dp))
                 } else {
-                    Icon(imageVector = Icons.Default.Tune, contentDescription = null)
+                    Icon(imageVector = Icons.Default.AutoAwesome, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Apply & Save Image", fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.enhance_button), fontWeight = FontWeight.Bold)
                 }
             }
+        }
+
+        errorMessage?.let { err ->
+            Text(text = err, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
         }
 
         processedFile?.let { file ->
@@ -643,30 +823,53 @@ fun ImageEffectsToolView() {
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = SuccessGreen.copy(alpha = 0.15f))
             ) {
-                Row(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Processed Successfully!", fontWeight = FontWeight.Bold, color = SuccessGreen)
-                        Text(file.name, style = MaterialTheme.typography.bodySmall)
-                    }
+                    Text("Enhancement Complete!", fontWeight = FontWeight.Bold, color = SuccessGreen)
+                    Text("${file.name} • ${file.length() / 1024} KB", style = MaterialTheme.typography.bodySmall)
+                    Text("المسار: ${file.absolutePath}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
-                    IconButton(
-                        onClick = {
-                            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
-                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                type = "image/jpeg"
-                                putExtra(Intent.EXTRA_STREAM, uri)
-                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                            }
-                            context.startActivity(Intent.createChooser(shareIntent, "Share Image"))
-                        }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Icon(imageVector = Icons.Default.Share, contentDescription = "Share", tint = ZeidexOrange)
+                        Button(
+                            onClick = {
+                                val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                                val mime = if (isVideo) "video/mp4" else "image/*"
+                                val viewIntent = Intent(Intent.ACTION_VIEW).apply {
+                                    setDataAndType(uri, mime)
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                context.startActivity(Intent.createChooser(viewIntent, "Open Media"))
+                            },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = SuccessGreen)
+                        ) {
+                            Text(stringResource(R.string.open_file))
+                        }
+
+                        OutlinedButton(
+                            onClick = {
+                                val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                                val mime = if (isVideo) "video/mp4" else "image/*"
+                                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                    type = mime
+                                    putExtra(Intent.EXTRA_STREAM, uri)
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                }
+                                context.startActivity(Intent.createChooser(shareIntent, "Share Media"))
+                            },
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(imageVector = Icons.Default.Share, contentDescription = "Share", tint = ZeidexOrange)
+                        }
                     }
                 }
             }

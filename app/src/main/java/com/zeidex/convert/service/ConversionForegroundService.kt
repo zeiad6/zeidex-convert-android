@@ -55,6 +55,64 @@ class ConversionForegroundService : Service() {
             }
             context.startService(intent)
         }
+
+        fun showCompletionNotification(
+            context: Context,
+            title: String,
+            message: String,
+            file: java.io.File? = null
+        ) {
+            try {
+                val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    val channel = NotificationChannel(
+                        CHANNEL_ID,
+                        "Zeidex Conversions",
+                        NotificationManager.IMPORTANCE_DEFAULT
+                    ).apply {
+                        description = "Shows completion notifications with saved file path"
+                    }
+                    manager.createNotificationChannel(channel)
+                }
+
+                val intent = if (file != null && file.exists()) {
+                    val uri = androidx.core.content.FileProvider.getUriForFile(
+                        context,
+                        "${context.packageName}.fileprovider",
+                        file
+                    )
+                    val mime = if (file.extension.equals("mp4", true)) "video/mp4" else "*/*"
+                    Intent(Intent.ACTION_VIEW).apply {
+                        setDataAndType(uri, mime)
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                } else {
+                    Intent(context, MainActivity::class.java).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                }
+
+                val pendingIntent = PendingIntent.getActivity(
+                    context,
+                    (System.currentTimeMillis() % 10000).toInt(),
+                    intent,
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                )
+
+                val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+                    .setContentTitle(title)
+                    .setContentText(message)
+                    .setStyle(NotificationCompat.BigTextStyle().bigText(message))
+                    .setSmallIcon(R.mipmap.ic_launcher)
+                    .setContentIntent(pendingIntent)
+                    .setAutoCancel(true)
+                    .setPriority(NotificationCompat.PRIORITY_HIGH)
+                    .build()
+
+                manager.notify((System.currentTimeMillis() % 100000).toInt() + 2000, notification)
+            } catch (_: Exception) {}
+        }
     }
 
     override fun onBind(intent: Intent?): IBinder? = null

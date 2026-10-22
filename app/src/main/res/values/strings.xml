@@ -36,6 +36,16 @@
     <string name="tool_pdf_merge">Merge PDFs</string>
     <string name="tool_pdf_split">Split PDF</string>
     <string name="tool_qr">QR Code</string>
+    <string name="tool_enhance">Enhance Quality</string>
+    <string name="video_enhance_title">Video Quality Booster</string>
+    <string name="image_enhance_title">Image Quality Booster</string>
+    <string name="enhance_button">Enhance &amp; Save</string>
+    <string name="play_video">Play Video</string>
+    <string name="live_photo_saved">Live Photo Video Saved</string>
+    <string name="video_upscale_1080p">1080p FHD Upscale</string>
+    <string name="sharpen_details">Sharpen &amp; Clarity</string>
+    <string name="auto_contrast">Auto Contrast</string>
+    <string name="upscale_2x">2x Super-Resolution</string>
 
     <string name="share_result">Share</string>
     <string name="open_file">Open</string>

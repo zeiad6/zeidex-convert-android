@@ -36,6 +36,16 @@
     <string name="tool_pdf_merge">دمج ملفات PDF</string>
     <string name="tool_pdf_split">تقسيم PDF</string>
     <string name="tool_qr">رمز الاستجابة QR</string>
+    <string name="tool_enhance">تحسين الجودة</string>
+    <string name="video_enhance_title">تحسين جودة الفيديو</string>
+    <string name="image_enhance_title">تحسين جودة الصور</string>
+    <string name="enhance_button">تحسين وحفظ</string>
+    <string name="play_video">تشغيل الفيديو</string>
+    <string name="live_photo_saved">تم استخراج وحفظ فيديو الصورة الحية</string>
+    <string name="video_upscale_1080p">تكبير فائق 1080p FHD</string>
+    <string name="sharpen_details">توضيح وحِدة التفاصيل</string>
+    <string name="auto_contrast">موازنة التباين والألوان</string>
+    <string name="upscale_2x">مضاعفة الدقة 2X</string>
 
     <string name="share_result">مشاركة</string>
     <string name="open_file">فتح</string>

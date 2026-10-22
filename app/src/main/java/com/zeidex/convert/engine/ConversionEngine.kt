@@ -4,6 +4,7 @@ import android.content.Context
 import com.zeidex.convert.model.Category
 import com.zeidex.convert.model.ConversionTask
 import com.zeidex.convert.model.TaskStatus
+import com.zeidex.convert.service.ConversionForegroundService
 import com.zeidex.convert.util.StorageManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -23,18 +24,27 @@ class ConversionEngine(private val context: Context) {
             val input = task.inputFile
 
             val resultFile: File = when {
-                // Motion Photo Extraction (JPEG -> MP4)
+                // Motion Photo Extraction (Image -> MP4)
                 targetExt == "mp4" && input.category == Category.IMAGE -> {
                     onProgress(0.3f)
                     val dir = StorageManager.getSubfolder(context, specialName = "LivePhotos")
                     MotionPhotoExtractor.extractMotionVideo(context, input, dir)
                 }
 
-                // Audio extraction from Video (Video -> M4A / MP3 / AAC)
+                // Audio extraction from Video (Video -> M4A / MP3 / AAC / WAV)
                 input.category == Category.VIDEO && (targetExt == "m4a" || targetExt == "mp3" || targetExt == "aac" || targetExt == "wav") -> {
                     onProgress(0.3f)
                     val dir = StorageManager.getSubfolder(context, Category.AUDIO)
                     MediaAudioExtractor.extractAudio(context, input, dir, targetExt) { p ->
+                        onProgress(p)
+                    }
+                }
+
+                // Video Transcoding / Enhancement (Video -> MP4)
+                input.category == Category.VIDEO && targetExt == "mp4" -> {
+                    onProgress(0.2f)
+                    val dir = StorageManager.getSubfolder(context, Category.VIDEO)
+                    VideoEnhancer.enhanceVideo(context, input, dir) { p ->
                         onProgress(p)
                     }
                 }
@@ -46,7 +56,7 @@ class ConversionEngine(private val context: Context) {
                     pages.firstOrNull() ?: throw IllegalStateException("No pages rendered from PDF")
                 }
 
-                // Single Image conversion (JPG, PNG, WEBP, PDF, ICO, etc.)
+                // Single Image conversion (JPG, PNG, WEBP, BMP, HEIC, PDF, ICO, etc.)
                 input.category == Category.IMAGE -> {
                     onProgress(0.4f)
                     ImageConverter.convertImage(
@@ -95,10 +105,19 @@ class ConversionEngine(private val context: Context) {
             }
 
             onProgress(1.0f)
+            val savedFile = StorageManager.saveToPhoneStorage(context, resultFile, task.targetFormat.category)
+            val notifMessage = "تم حفظ الملف بنجاح في:\n${savedFile.absolutePath}"
+            ConversionForegroundService.showCompletionNotification(
+                context = context,
+                title = "Zeidex Convert • اكتمل التحويل بنجاح",
+                message = notifMessage,
+                file = savedFile
+            )
+
             task.copy(
                 status = TaskStatus.COMPLETED,
                 progress = 1.0f,
-                outputFile = resultFile
+                outputFile = savedFile
             )
         } catch (e: Exception) {
             task.copy(

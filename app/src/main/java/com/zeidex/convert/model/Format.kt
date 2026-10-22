@@ -57,19 +57,20 @@ data class Format(
                     Format("jpg", "JPG", Category.IMAGE),
                     Format("png", "PNG", Category.IMAGE),
                     Format("webp", "WEBP", Category.IMAGE),
+                    Format("mp4", "MP4 (فيديو الصورة الحية)", Category.VIDEO),
+                    Format("bmp", "BMP", Category.IMAGE),
                     Format("pdf", "PDF", Category.IMAGE),
                     Format("ico", "ICO", Category.IMAGE),
-                    Format("bmp", "BMP", Category.IMAGE),
                     Format("zip", "ZIP (Archive)", Category.ARCHIVE)
-                ).filter { it.ext != currentExt.lowercase() }
+                )
 
                 Category.VIDEO -> listOf(
+                    Format("mp4", "MP4 (Optimized/FHD)", Category.VIDEO),
                     Format("m4a", "M4A (Extract Audio)", Category.AUDIO),
                     Format("mp3", "MP3 (Audio)", Category.AUDIO),
                     Format("aac", "AAC (Audio)", Category.AUDIO),
-                    Format("mp4", "MP4", Category.VIDEO),
                     Format("zip", "ZIP", Category.ARCHIVE)
-                ).filter { it.ext != currentExt.lowercase() }
+                )
 
                 Category.AUDIO -> listOf(
                     Format("m4a", "M4A", Category.AUDIO),
