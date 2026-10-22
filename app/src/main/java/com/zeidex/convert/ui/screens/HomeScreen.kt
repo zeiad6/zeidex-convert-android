@@ -27,11 +27,13 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -39,11 +41,14 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedFilterChip
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -80,6 +85,8 @@ fun HomeScreen(
     val availableFormats by viewModel.availableFormats.collectAsState()
     val tasks by viewModel.tasks.collectAsState()
     val isConverting by viewModel.isConverting.collectAsState()
+    val compressionQuality by viewModel.compressionQuality.collectAsState()
+    val maxDimension by viewModel.maxDimension.collectAsState()
 
     var chosenFormat by remember { mutableStateOf<Format?>(null) }
 
@@ -222,6 +229,104 @@ fun HomeScreen(
                                     selectedLabelColor = MaterialTheme.colorScheme.onPrimary
                                 )
                             )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Compression Settings Card
+                    Card(
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.Tune,
+                                    contentDescription = null,
+                                    tint = ZeidexOrange,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = stringResource(R.string.compression_settings),
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+
+                            // Quality Slider
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.compression_quality, compressionQuality),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                            Slider(
+                                value = compressionQuality.toFloat(),
+                                onValueChange = { viewModel.setCompressionQuality(it.toInt()) },
+                                valueRange = 10f..100f,
+                                steps = 17,
+                                colors = SliderDefaults.colors(
+                                    thumbColor = ZeidexOrange,
+                                    activeTrackColor = ZeidexOrange
+                                )
+                            )
+
+                            // Resolution options
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                val options = listOf(
+                                    null to stringResource(R.string.res_original),
+                                    1920 to stringResource(R.string.res_1080p),
+                                    1280 to stringResource(R.string.res_720p),
+                                    854 to stringResource(R.string.res_480p)
+                                )
+                                options.forEach { (dim, label) ->
+                                    val isSelected = maxDimension == dim
+                                    FilterChip(
+                                        selected = isSelected,
+                                        onClick = { viewModel.setMaxDimension(dim) },
+                                        label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = ZeidexOrange,
+                                            selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                                        )
+                                    )
+                                }
+                            }
+
+                            // Storage info
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Folder,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = stringResource(R.string.storage_folder_desc),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
 

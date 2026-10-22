@@ -2,7 +2,6 @@
 <resources>
     <string name="app_name">Zeidex Convert</string>
     <string name="nav_home">Convert</string>
-    <string name="nav_wheel">Wheel</string>
     <string name="nav_tools">Tools</string>
     <string name="nav_history">History</string>
     <string name="nav_settings">Settings</string>
@@ -42,4 +41,45 @@
     <string name="open_file">Open</string>
     <string name="clear_all">Clear All</string>
     <string name="privacy_guarantee">100% Local &amp; Offline. No files are uploaded.</string>
+
+    <string name="developer_info">Developer Information</string>
+    <string name="developer_name">Zeidexsoft</string>
+    <string name="developer_website">Visit Zeidexsoft</string>
+    <string name="developer_link">https://zeidexlink.zeidexsoft.com/zeidex</string>
+
+    <string name="donate_title">Support &amp; Donate</string>
+    <string name="donate_subtitle">Help support the development of private offline tools</string>
+    <string name="donate_dialog_title">Payment &amp; Donation Methods</string>
+    <string name="donate_dialog_desc">Support Zeidexsoft via payment methods available on zeidexsoft.com:</string>
+    <string name="payment_cards">Credit / Debit Cards (Stripe)</string>
+    <string name="payment_paypal">PayPal</string>
+    <string name="payment_crypto">Cryptocurrency (USDT TRC20 / BTC)</string>
+    <string name="payment_bank">Bank Transfer</string>
+    <string name="visit_zeidexsoft">Open zeidexsoft.com</string>
+
+    <string name="storage_folder_title">Dedicated Storage Folder</string>
+    <string name="storage_folder_desc">Files are saved automatically to: Download/ZeidexConvert/</string>
+    <string name="open_folder">Open Folder</string>
+
+    <string name="compression_settings">Compression &amp; Quality Settings</string>
+    <string name="compression_quality">Quality: %1$d%%</string>
+    <string name="res_original">Original</string>
+    <string name="res_1080p">1080p (FHD)</string>
+    <string name="res_720p">720p (HD)</string>
+    <string name="res_480p">480p (SD)</string>
+
+    <string name="permission_required">Permissions required for storage and background notifications</string>
+    <string name="grant_permissions">Grant Permissions</string>
+
+    <string name="updates_title">Updates &amp; Signatures</string>
+    <string name="updates_source">Official Source: zeidexsoft.com</string>
+    <string name="check_updates">Check for Updates</string>
+    <string name="checking_updates">Checking zeidexsoft.com…</string>
+    <string name="app_up_to_date">App is up to date with official releases</string>
+    <string name="update_available">Update Available: v%1$s</string>
+    <string name="signature_verified">Zeidexsoft Official Signature Verified</string>
+    <string name="signature_failed">Security Alert: Signature verification failed</string>
+    <string name="download_install">Download &amp; Verify Update</string>
+    <string name="installing_update">Install Now</string>
+    <string name="downloading_update">Downloading Update: %1$d%%</string>
 </resources>

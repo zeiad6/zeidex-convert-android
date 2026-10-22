@@ -12,6 +12,10 @@ import com.zeidex.convert.model.ConversionTask
 import com.zeidex.convert.model.FileItem
 import com.zeidex.convert.model.Format
 import com.zeidex.convert.model.TaskStatus
+import com.zeidex.convert.service.ConversionForegroundService
+import com.zeidex.convert.util.PackageUpdateInfo
+import com.zeidex.convert.util.UpdateChecker
+import com.zeidex.convert.util.UpdateState
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -40,11 +44,62 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _isConverting = MutableStateFlow(false)
     val isConverting: StateFlow<Boolean> = _isConverting.asStateFlow()
 
+    // Compression & resize settings
+    private val _compressionQuality = MutableStateFlow(85)
+    val compressionQuality: StateFlow<Int> = _compressionQuality.asStateFlow()
+
+    private val _maxDimension = MutableStateFlow<Int?>(null)
+    val maxDimension: StateFlow<Int?> = _maxDimension.asStateFlow()
+
+    // Updates management
+    private val _updateState = MutableStateFlow<UpdateState>(UpdateState.Idle)
+    val updateState: StateFlow<UpdateState> = _updateState.asStateFlow()
+
     private val tasksStorageFile: File
         get() = File(getApplication<Application>().filesDir, "conversion_tasks.json")
 
     init {
         loadTasks()
+        checkForUpdates(silent = true)
+    }
+
+    fun checkForUpdates(silent: Boolean = false) {
+        viewModelScope.launch {
+            if (!silent) _updateState.value = UpdateState.Checking
+            val result = UpdateChecker.check(getApplication())
+            if (!silent || result is UpdateState.UpdateAvailable) {
+                _updateState.value = result
+            }
+        }
+    }
+
+    fun downloadAndInstallUpdate(info: PackageUpdateInfo) {
+        viewModelScope.launch {
+            _updateState.value = UpdateState.Downloading(0f, 0L, 0L)
+            val result = UpdateChecker.downloadAndVerify(getApplication(), info) { progress, downloaded, total ->
+                _updateState.value = UpdateState.Downloading(progress, downloaded, total)
+            }
+            _updateState.value = result
+            if (result is UpdateState.ReadyToInstall) {
+                UpdateChecker.launchInstaller(getApplication(), result.apkFile)
+            }
+        }
+    }
+
+    fun installApk(apkFile: File) {
+        UpdateChecker.launchInstaller(getApplication(), apkFile)
+    }
+
+    fun dismissUpdate() {
+        _updateState.value = UpdateState.Idle
+    }
+
+    fun setCompressionQuality(q: Int) {
+        _compressionQuality.value = q.coerceIn(10, 100)
+    }
+
+    fun setMaxDimension(dim: Int?) {
+        _maxDimension.value = dim
     }
 
     fun addUris(uris: List<Uri>) {
@@ -149,6 +204,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
         conversionJob?.cancel()
         saveTasks()
+        ConversionForegroundService.stop(getApplication(), "Conversion paused")
     }
 
     fun resumeConversion() {
@@ -187,6 +243,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (_isConverting.value) return
         conversionJob?.cancel()
 
+        val context = getApplication<Application>()
+        ConversionForegroundService.start(context, "Zeidex Convert: Processing tasks...")
+
         conversionJob = viewModelScope.launch {
             _isConverting.value = true
 
@@ -194,9 +253,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val nextTask = _tasks.value.firstOrNull { it.status == TaskStatus.PENDING } ?: break
 
                 updateTaskStatus(nextTask.id, TaskStatus.PROCESSING)
+                ConversionForegroundService.updateProgress(
+                    context,
+                    "Converting ${nextTask.inputFile.name} → ${nextTask.targetFormat.label}",
+                    (nextTask.progress * 100).toInt()
+                )
 
-                val result = engine.processTask(nextTask) { prog ->
+                val result = engine.processTask(
+                    task = nextTask,
+                    compressionQuality = _compressionQuality.value,
+                    maxWidth = _maxDimension.value
+                ) { prog ->
                     updateTaskProgress(nextTask.id, prog)
+                    ConversionForegroundService.updateProgress(
+                        context,
+                        "Converting ${nextTask.inputFile.name} (${(prog * 100).toInt()}%)",
+                        (prog * 100).toInt()
+                    )
                 }
 
                 if (isPaused) {
@@ -208,6 +281,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
 
             _isConverting.value = false
+            ConversionForegroundService.stop(context, "All files converted and saved to Download/ZeidexConvert")
         }
     }
 
@@ -276,7 +350,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val obj = jsonArray.getJSONObject(i)
                 val id = obj.getString("id")
                 var statusStr = obj.optString("status", "COMPLETED")
-                // If the app was closed during processing, mark it as PAUSED for resumption
                 if (statusStr == "PROCESSING" || statusStr == "PENDING") {
                     statusStr = "PAUSED"
                 }

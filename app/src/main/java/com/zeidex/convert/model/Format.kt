@@ -59,38 +59,41 @@ data class Format(
                     Format("webp", "WEBP", Category.IMAGE),
                     Format("pdf", "PDF", Category.IMAGE),
                     Format("ico", "ICO", Category.IMAGE),
-                    Format("bmp", "BMP", Category.IMAGE)
+                    Format("bmp", "BMP", Category.IMAGE),
+                    Format("zip", "ZIP (Archive)", Category.ARCHIVE)
                 ).filter { it.ext != currentExt.lowercase() }
 
                 Category.VIDEO -> listOf(
+                    Format("m4a", "M4A (Extract Audio)", Category.AUDIO),
+                    Format("mp3", "MP3 (Audio)", Category.AUDIO),
+                    Format("aac", "AAC (Audio)", Category.AUDIO),
                     Format("mp4", "MP4", Category.VIDEO),
-                    Format("mp3", "MP3", Category.AUDIO),
-                    Format("m4a", "M4A", Category.AUDIO),
-                    Format("wav", "WAV", Category.AUDIO),
-                    Format("gif", "GIF", Category.IMAGE)
+                    Format("zip", "ZIP", Category.ARCHIVE)
                 ).filter { it.ext != currentExt.lowercase() }
 
                 Category.AUDIO -> listOf(
-                    Format("mp3", "MP3", Category.AUDIO),
                     Format("m4a", "M4A", Category.AUDIO),
+                    Format("mp3", "MP3", Category.AUDIO),
                     Format("wav", "WAV", Category.AUDIO),
                     Format("aac", "AAC", Category.AUDIO),
-                    Format("ogg", "OGG", Category.AUDIO)
+                    Format("zip", "ZIP", Category.ARCHIVE)
                 ).filter { it.ext != currentExt.lowercase() }
 
                 Category.PDF -> listOf(
-                    Format("png", "PNG", Category.IMAGE),
-                    Format("jpg", "JPG", Category.IMAGE),
-                    Format("pdf", "PDF (Merged/Split)", Category.PDF)
+                    Format("png", "PNG (Images)", Category.IMAGE),
+                    Format("jpg", "JPG (Images)", Category.IMAGE),
+                    Format("pdf", "PDF (Optimized)", Category.PDF),
+                    Format("zip", "ZIP (All Pages)", Category.ARCHIVE)
                 )
 
                 Category.ARCHIVE -> listOf(
-                    Format("zip", "ZIP", Category.ARCHIVE),
-                    Format("tar", "TAR", Category.ARCHIVE)
+                    Format("extract", "Extract All (فك الضغط)", Category.ARCHIVE),
+                    Format("zip", "ZIP", Category.ARCHIVE)
                 )
 
                 Category.DOCUMENT -> listOf(
-                    Format("pdf", "PDF", Category.DOCUMENT)
+                    Format("pdf", "PDF", Category.DOCUMENT),
+                    Format("zip", "ZIP", Category.ARCHIVE)
                 )
             }
         }

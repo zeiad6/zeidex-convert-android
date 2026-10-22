@@ -2,6 +2,7 @@ package com.zeidex.convert.engine
 
 import android.content.Context
 import com.zeidex.convert.model.FileItem
+import com.zeidex.convert.util.StorageManager
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
@@ -80,7 +81,8 @@ object MotionPhotoExtractor {
 
         val videoOffset = fileLength - videoLength
         val baseName = input.name.substringBeforeLast('.')
-        val outFile = File(outputDir, "${baseName}_motion.mp4")
+        val targetDir = StorageManager.getSubfolder(context, specialName = "LivePhotos")
+        val outFile = File(targetDir, "${baseName}_motion.mp4")
 
         FileInputStream(tempFile).use { inputFis ->
             inputFis.skip(videoOffset)
@@ -98,6 +100,7 @@ object MotionPhotoExtractor {
         }
 
         tempFile.delete()
+        StorageManager.saveToPhoneStorage(context, outFile, specialName = "LivePhotos")
         return outFile
     }
 

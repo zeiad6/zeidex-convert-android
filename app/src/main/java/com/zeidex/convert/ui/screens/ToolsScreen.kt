@@ -72,6 +72,7 @@ import com.zeidex.convert.model.FileItem
 import com.zeidex.convert.ui.theme.SuccessGreen
 import com.zeidex.convert.ui.theme.ZeidexOrange
 import com.zeidex.convert.ui.viewmodel.MainViewModel
+import com.zeidex.convert.util.StorageManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -136,11 +137,11 @@ fun ToolsScreen(
 @Composable
 fun QrToolView() {
     val context = LocalContext.current
-    var qrText by remember { mutableStateOf("https://github.com/zeiad6/zeidex-convert-android") }
+    var qrText by remember { mutableStateOf("https://zeidexlink.zeidexsoft.com/zeidex") }
     var qrBitmap by remember {
         mutableStateOf<Bitmap?>(
             try {
-                QrEngine.generateQrBitmap("https://github.com/zeiad6/zeidex-convert-android")
+                QrEngine.generateQrBitmap("https://zeidexlink.zeidexsoft.com/zeidex")
             } catch (e: Exception) {
                 null
             }
@@ -186,9 +187,8 @@ fun QrToolView() {
         Button(
             onClick = {
                 if (qrText.isNotBlank()) {
-                    val outDir = File(context.getExternalFilesDir(null) ?: context.filesDir, "Converted")
-                    if (!outDir.exists()) outDir.mkdirs()
-                    val file = QrEngine.saveQrToFile(qrText, outDir, "qr_${System.currentTimeMillis()}.png")
+                    val file = QrEngine.saveQrToFile(context, qrText, "qr_${System.currentTimeMillis()}.png")
+                    Toast.makeText(context, "Saved to Download/ZeidexConvert/QR/", Toast.LENGTH_SHORT).show()
 
                     val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
                     val shareIntent = Intent(Intent.ACTION_SEND).apply {
@@ -293,8 +293,7 @@ fun MotionPhotoToolView() {
                     errorMessage = null
                     scope.launch {
                         try {
-                            val outDir = File(context.getExternalFilesDir(null) ?: context.filesDir, "Converted")
-                            if (!outDir.exists()) outDir.mkdirs()
+                            val outDir = StorageManager.getSubfolder(context, specialName = "LivePhotos")
                             val videoFile = withContext(Dispatchers.IO) {
                                 MotionPhotoExtractor.extractMotionVideo(context, item, outDir)
                             }
@@ -437,8 +436,7 @@ fun PdfToolView() {
                     isMerging = true
                     scope.launch {
                         try {
-                            val outDir = File(context.getExternalFilesDir(null) ?: context.filesDir, "Converted")
-                            if (!outDir.exists()) outDir.mkdirs()
+                            val outDir = StorageManager.getSubfolder(context, Category.PDF)
                             val pdf = withContext(Dispatchers.IO) {
                                 PdfConverter.imagesToPdf(context, selectedImages, outDir, "merged_${System.currentTimeMillis()}.pdf")
                             }
@@ -602,8 +600,7 @@ fun ImageEffectsToolView() {
                     isProcessing = true
                     scope.launch {
                         try {
-                            val outDir = File(context.getExternalFilesDir(null) ?: context.filesDir, "Converted")
-                            if (!outDir.exists()) outDir.mkdirs()
+                            val outDir = StorageManager.getSubfolder(context, Category.IMAGE)
                             val res = withContext(Dispatchers.IO) {
                                 ImageConverter.convertImage(
                                     context = context,

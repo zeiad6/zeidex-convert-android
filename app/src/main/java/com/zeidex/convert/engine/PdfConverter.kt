@@ -5,9 +5,10 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.pdf.PdfDocument
 import android.graphics.pdf.PdfRenderer
-import android.net.Uri
 import android.os.ParcelFileDescriptor
+import com.zeidex.convert.model.Category
 import com.zeidex.convert.model.FileItem
+import com.zeidex.convert.util.StorageManager
 import java.io.File
 import java.io.FileOutputStream
 
@@ -15,14 +16,16 @@ object PdfConverter {
 
     /**
      * Converts a PDF file into individual image pages (PNG or JPG).
+     * Saves them automatically into /Download/ZeidexConvert/Images/
      */
     fun pdfToImages(
         context: Context,
         input: FileItem,
-        outputDir: File,
+        outputDir: File? = null,
         targetExt: String = "png",
         dpiScale: Float = 2.0f
     ): List<File> {
+        val targetDir = StorageManager.getSubfolder(context, Category.IMAGE)
         val pfd: ParcelFileDescriptor = context.contentResolver.openFileDescriptor(input.uri, "r")
             ?: throw IllegalStateException("Cannot open PDF file descriptor")
 
@@ -43,16 +46,16 @@ object PdfConverter {
             val height = (page.height * dpiScale).toInt()
 
             val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-            // Draw white background before rendering page content
             bitmap.eraseColor(android.graphics.Color.WHITE)
 
             page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
             page.close()
 
-            val pageFile = File(outputDir, "${baseName}_page_${i + 1}.$targetExt")
+            val pageFile = File(targetDir, "${baseName}_page_${i + 1}.$targetExt")
             FileOutputStream(pageFile).use { out ->
                 bitmap.compress(format, 95, out)
             }
+            StorageManager.saveToPhoneStorage(context, pageFile, Category.IMAGE)
             outputFiles.add(pageFile)
         }
 
@@ -63,13 +66,15 @@ object PdfConverter {
 
     /**
      * Combines multiple images into a single multi-page PDF document.
+     * Saves automatically into /Download/ZeidexConvert/PDF/
      */
     fun imagesToPdf(
         context: Context,
         inputs: List<FileItem>,
-        outputDir: File,
+        outputDir: File? = null,
         pdfName: String = "combined.pdf"
     ): File {
+        val targetDir = StorageManager.getSubfolder(context, Category.PDF)
         val pdfDoc = PdfDocument()
         var pageNum = 1
 
@@ -85,9 +90,11 @@ object PdfConverter {
             pageNum++
         }
 
-        val outFile = File(outputDir, pdfName)
+        val outFile = File(targetDir, pdfName)
         FileOutputStream(outFile).use { out -> pdfDoc.writeTo(out) }
         pdfDoc.close()
+
+        StorageManager.saveToPhoneStorage(context, outFile, Category.PDF)
         return outFile
     }
 }

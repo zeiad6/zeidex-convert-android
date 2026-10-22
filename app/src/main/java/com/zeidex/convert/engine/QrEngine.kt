@@ -1,10 +1,12 @@
 package com.zeidex.convert.engine
 
+import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Color
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
 import com.google.zxing.qrcode.QRCodeWriter
+import com.zeidex.convert.util.StorageManager
 import java.io.File
 import java.io.FileOutputStream
 
@@ -27,12 +29,14 @@ object QrEngine {
         return bitmap
     }
 
-    fun saveQrToFile(content: String, outputDir: File, fileName: String = "qrcode.png"): File {
+    fun saveQrToFile(context: Context, content: String, fileName: String = "qrcode.png"): File {
         val bitmap = generateQrBitmap(content)
-        val file = File(outputDir, fileName)
+        val targetDir = StorageManager.getSubfolder(context, specialName = "QR")
+        val file = File(targetDir, fileName)
         FileOutputStream(file).use { out ->
             bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
         }
+        StorageManager.saveToPhoneStorage(context, file, specialName = "QR")
         return file
     }
 }

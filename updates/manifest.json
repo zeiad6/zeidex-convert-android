@@ -1,0 +1,28 @@
+{
+  "$schema": "https://zeidexsoft.com/schemas/update-manifest-v1.json",
+  "project": "Zeidex Convert",
+  "vendor": "Zeidexsoft",
+  "official_website": "https://zeidexsoft.com",
+  "developer_portal": "https://zeidexlink.zeidexsoft.com/zeidex",
+  "manifest_version": 1,
+  "updated_at": "2026-10-22T15:45:00Z",
+  "packages": {
+    "android": {
+      "id": "com.zeidex.convert",
+      "name": "Zeidex Convert (Android APK)",
+      "platform": "android",
+      "version": "1.1.0",
+      "version_code": 2,
+      "min_os_version": "8.0",
+      "url": "https://zeidexsoft.com/downloads/zeidex-convert-v1.1.0.apk",
+      "mirror_url": "https://github.com/zeiad6/zeidex-convert-android/releases/download/v1.1.0/zeidex-convert-v1.1.0.apk",
+      "sha256": "bb2dfbc5eaa995829eff586ed2710a2adb0d433775abed57d601503ba1cd11a8",
+      "signing_key_id": "zeidex-release-key-2026",
+      "signing_cert_sha256": "d24bf9dfb3f1b9acb0f48fb1940b3eacc3875cdb19e7869f4b1281fdecb9366e",
+      "signature": "d24bf9dfb3f1b9acb0f48fb1940b3eacc3875cdb19e7869f4b1281fdecb9366e",
+      "changelog_ar": "تحديث شامل: إزالة واجهة العجلة، إصلاح استخراج الأرشيفات، استخراج الصوت من الفيديو، حفظ تلقائي في Download/ZeidexConvert، فحص التحديثات والتحقق من التوقيع الرقمي.",
+      "changelog_en": "Major update: Removed wheel interface, fixed archive extraction, video audio extractor, automatic saving to Download/ZeidexConvert, auto update check with signature verification.",
+      "mandatory": false
+    }
+  }
+}

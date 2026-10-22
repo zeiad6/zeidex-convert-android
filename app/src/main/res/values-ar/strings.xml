@@ -2,7 +2,6 @@
 <resources>
     <string name="app_name">Zeidex Convert</string>
     <string name="nav_home">التحويل</string>
-    <string name="nav_wheel">العجلة</string>
     <string name="nav_tools">الأدوات</string>
     <string name="nav_history">السجل</string>
     <string name="nav_settings">الإعدادات</string>
@@ -42,4 +41,45 @@
     <string name="open_file">فتح</string>
     <string name="clear_all">مسح الكل</string>
     <string name="privacy_guarantee">محلي 100% دون إنترنت. لا يُرفع أي ملف إطلاقاً.</string>
+
+    <string name="developer_info">معلومات المطور</string>
+    <string name="developer_name">Zeidexsoft</string>
+    <string name="developer_website">زيارة موقع المطور</string>
+    <string name="developer_link">https://zeidexlink.zeidexsoft.com/zeidex</string>
+
+    <string name="donate_title">دعم وتبرع</string>
+    <string name="donate_subtitle">ساهم في استمرار وتطوير تطبيقات محلية مجانية وآمنة</string>
+    <string name="donate_dialog_title">طرق الدفع والتبرع المتاحة</string>
+    <string name="donate_dialog_desc">يمكنك دعم Zeidexsoft عبر وسائل الدفع المعتمدة على موقع zeidexsoft.com:</string>
+    <string name="payment_cards">البطاقات الائتمانية والبنكية (Visa / MasterCard)</string>
+    <string name="payment_paypal">بايبال (PayPal)</string>
+    <string name="payment_crypto">العملات الرقمية (USDT TRC20 / Bitcoin)</string>
+    <string name="payment_bank">التحويل البنكي المباشر</string>
+    <string name="visit_zeidexsoft">فتح موقع zeidexsoft.com</string>
+
+    <string name="storage_folder_title">المجلد المخصص للحفظ التلقائي</string>
+    <string name="storage_folder_desc">تُحفظ كافة النتائج تلقائياً في: Download/ZeidexConvert/</string>
+    <string name="open_folder">فتح المجلد</string>
+
+    <string name="compression_settings">إعدادات ضغط الملفات والجودة</string>
+    <string name="compression_quality">جودة الضغط: %1$d%%</string>
+    <string name="res_original">الدقة الأصلية</string>
+    <string name="res_1080p">1080p (عالية)</string>
+    <string name="res_720p">720p (متوسطة)</string>
+    <string name="res_480p">480p (منخفضة)</string>
+
+    <string name="permission_required">يلزم منح الأذونات للوصول للملفات وإرسال الإشعارات بالخلفية</string>
+    <string name="grant_permissions">منح الأذونات</string>
+
+    <string name="updates_title">التحديثات والتحقق من التوقيع</string>
+    <string name="updates_source">المصدر الرسمي: موقع zeidexsoft.com</string>
+    <string name="check_updates">التحقق من التحديثات</string>
+    <string name="checking_updates">جارٍ الاتصال بموقع zeidexsoft.com…</string>
+    <string name="app_up_to_date">التطبيق محدّث إلى أحدث إصدار رسمي</string>
+    <string name="update_available">يتوفر تحديث جديد: v%1$s</string>
+    <string name="signature_verified">تم التحقق من توقيع Zeidexsoft الرقمي بنجاح</string>
+    <string name="signature_failed">تنبيه أمني: فشل التحقق من توقيع الحزمة</string>
+    <string name="download_install">تنزيل والتحقق من التحديث</string>
+    <string name="installing_update">تثبيت التحديث الآن</string>
+    <string name="downloading_update">جارٍ تنزيل التحديث: %1$d%%</string>
 </resources>

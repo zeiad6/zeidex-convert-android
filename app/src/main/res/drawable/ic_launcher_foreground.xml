@@ -3,13 +3,29 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+
+    <!-- Top curved convert arrow -->
+    <path
+        android:fillColor="#FF7A45"
+        android:pathData="M38,36 C42,30 48,27 55,27 C63,27 70,31 74,38 L78,34 L78,48 L64,48 L68,44 C65,39 60,36 55,36 C50,36 46,38 43,42 Z" />
+
+    <!-- Bottom curved convert arrow -->
     <path
         android:fillColor="#F05A28"
-        android:pathData="M54,18 A36,36 0 1,0 54,90 A36,36 0 1,0 54,18 Z" />
+        android:pathData="M70,72 C66,78 60,81 53,81 C45,81 38,77 34,70 L30,74 L30,60 L44,60 L40,64 C43,69 48,72 53,72 C58,72 62,70 65,66 Z" />
+
+    <!-- Central Zeidex emblem container -->
+    <path
+        android:fillColor="#F05A28"
+        android:pathData="M43,42 L65,42 C67.2,42 69,43.8 69,46 L69,62 C69,64.2 67.2,66 65,66 L43,66 C40.8,66 39,64.2 39,62 L39,46 C39,43.8 40.8,42 43,42 Z" />
+
+    <!-- Pure white 'Z' icon in center -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M54,34 A20,20 0 1,0 54,74 A20,20 0 1,0 54,34 Z" />
+        android:pathData="M46,47 L62,47 L62,50 L51,60 L62,60 L62,63 L46,63 L46,60 L57,50 L46,50 Z" />
+
+    <!-- Small sparkle accents -->
     <path
-        android:fillColor="#F05A28"
-        android:pathData="M50,46 L58,54 L50,62 Z" />
+        android:fillColor="#FFB38A"
+        android:pathData="M78,28 L80,24 L82,28 L86,30 L82,32 L80,36 L78,32 L74,30 Z" />
 </vector>
