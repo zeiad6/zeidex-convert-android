@@ -58,6 +58,32 @@ class UpdateCheckerTest {
     }
 
     @Test
+    fun readsTheMirrorUrlWhenPresent() {
+        val info = UpdateChecker.parseManifest(
+            validPackage(mapOf("mirror_url" to "https://github.com/zeiad6/zeidexfileconventer/releases/download/v0.1.0/zeidex-convert-v1.2.0.apk"))
+        ).getOrThrow()
+
+        assertEquals(
+            "https://github.com/zeiad6/zeidexfileconventer/releases/download/v0.1.0/zeidex-convert-v1.2.0.apk",
+            info.mirrorUrl
+        )
+    }
+
+    @Test
+    fun aMissingMirrorIsNotAnError() {
+        val info = UpdateChecker.parseManifest(validPackage()).getOrThrow()
+
+        assertEquals(null, info.mirrorUrl)
+    }
+
+    @Test
+    fun rejectsAPlainHttpMirror() {
+        val message = rejection(mapOf("mirror_url" to "http://example.com/zeidex-convert.apk"))
+
+        assertTrue(message, message.contains("mirror URL must use https"))
+    }
+
+    @Test
     fun shippedManifestOnlyAdvertisesHttpsDownloads() {
         val pkg = androidBlock(shippedManifest())
 

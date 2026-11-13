@@ -23,6 +23,7 @@ data class PackageUpdateInfo(
     val version: String,
     val versionCode: Int,
     val downloadUrl: String,
+    val mirrorUrl: String? = null,
     val sha256: String,
     val signingCertSha256: String,
     val changelogAr: String,
@@ -166,6 +167,7 @@ object UpdateChecker {
         val versionCode = androidPkg.optInt("version_code", 0)
         val version = androidPkg.optString("version").trim()
         val downloadUrl = androidPkg.optString("url").trim()
+        val mirrorUrl = androidPkg.optString("mirror_url").trim()
         val sha256 = androidPkg.optString("sha256").trim()
         val signingCert = androidPkg.optString("signing_cert_sha256", OFFICIAL_CERT_SHA256).trim()
 
@@ -173,6 +175,9 @@ object UpdateChecker {
         if (version.isEmpty()) return Result.failure(IllegalArgumentException("version is missing"))
         if (!downloadUrl.startsWith("https://")) {
             return Result.failure(IllegalArgumentException("download URL must use https"))
+        }
+        if (mirrorUrl.isNotEmpty() && !mirrorUrl.startsWith("https://")) {
+            return Result.failure(IllegalArgumentException("mirror URL must use https"))
         }
         if (!SHA256_HEX.matches(sha256)) {
             return Result.failure(IllegalArgumentException("sha256 must be 64 hexadecimal characters"))
@@ -188,6 +193,7 @@ object UpdateChecker {
                 version = version,
                 versionCode = versionCode,
                 downloadUrl = downloadUrl,
+                mirrorUrl = mirrorUrl.ifEmpty { null },
                 sha256 = sha256.lowercase(),
                 signingCertSha256 = signingCert.lowercase(),
                 changelogAr = androidPkg.optString("changelog_ar", "تحديث جديد لتطبيق Zeidex Convert"),
@@ -279,25 +285,68 @@ object UpdateChecker {
         if (!updateDir.exists()) updateDir.mkdirs()
         val destFile = File(updateDir, "zeidex_convert_v${info.version}.apk")
 
+        // The primary host is the project site; the mirror is the release asset. Neither is
+        // guaranteed to be reachable, so both are tried before the check fails.
+        val candidates = listOfNotNull(info.downloadUrl, info.mirrorUrl)
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .distinct()
+        val failures = mutableListOf<String>()
+
+        for (candidate in candidates) {
+            if (!candidate.startsWith("https://")) {
+                failures += "$candidate -> not HTTPS"
+                continue
+            }
+            try {
+                downloadFile(candidate, destFile, onProgress)
+
+                // Verify File Checksum SHA-256
+                val fileHash = computeFileSha256(destFile)
+                if (!fileHash.equals(info.sha256.trim(), ignoreCase = true)) {
+                    destFile.delete()
+                    failures += "$candidate -> SHA-256 mismatch (expected ${info.sha256}, computed $fileHash)"
+                    continue
+                }
+
+                // Verify Cryptographic Signature
+                val verification = verifyApkSignature(context, destFile, info.signingCertSha256)
+                if (!verification.isValid) {
+                    destFile.delete()
+                    return@withContext UpdateState.VerificationFailed(
+                        "Security Signature Verification Failed: ${verification.message}"
+                    )
+                }
+
+                return@withContext UpdateState.ReadyToInstall(destFile, info, verification)
+            } catch (e: Exception) {
+                destFile.delete()
+                failures += "$candidate -> ${e.localizedMessage}"
+            }
+        }
+
+        UpdateState.Error("Download failed: " + failures.joinToString("; "))
+    }
+
+    private fun downloadFile(
+        urlString: String,
+        destFile: File,
+        onProgress: (Float, Long, Long) -> Unit
+    ) {
+        val conn = (URL(urlString).openConnection() as HttpURLConnection).apply {
+            connectTimeout = 12000
+            readTimeout = 20000
+            requestMethod = "GET"
+            setRequestProperty("User-Agent", "ZeidexConvert-Android-Updater")
+        }
         try {
-            if (!info.downloadUrl.startsWith("https://")) {
-                return@withContext UpdateState.Error("Refusing a non-HTTPS update URL")
-            }
-            val url = URL(info.downloadUrl)
-            val conn = (url.openConnection() as HttpURLConnection).apply {
-                connectTimeout = 12000
-                readTimeout = 20000
-                requestMethod = "GET"
-                setRequestProperty("User-Agent", "ZeidexConvert-Android-Updater")
-            }
+            val status = conn.responseCode
+            if (status !in 200..299) throw IOException("HTTP $status")
 
             val totalBytes = conn.contentLength.toLong()
-            if (totalBytes > MAX_APK_BYTES) {
-                conn.disconnect()
-                return@withContext UpdateState.Error("Update package exceeds the 300 MB limit")
-            }
-            var downloadedBytes = 0L
+            if (totalBytes > MAX_APK_BYTES) throw IOException("package exceeds the 300 MB limit")
 
+            var downloadedBytes = 0L
             conn.inputStream.use { input ->
                 FileOutputStream(destFile).use { output ->
                     val buffer = ByteArray(32 * 1024)
@@ -314,30 +363,8 @@ object UpdateChecker {
                     output.flush()
                 }
             }
+        } finally {
             conn.disconnect()
-
-            // Verify File Checksum SHA-256
-            val fileHash = computeFileSha256(destFile)
-            if (!fileHash.equals(info.sha256.trim(), ignoreCase = true)) {
-                destFile.delete()
-                return@withContext UpdateState.VerificationFailed(
-                    "SHA-256 Checksum mismatch! Expected: ${info.sha256}, Computed: $fileHash"
-                )
-            }
-
-            // Verify Cryptographic Signature
-            val verification = verifyApkSignature(context, destFile, info.signingCertSha256)
-            if (!verification.isValid) {
-                destFile.delete()
-                return@withContext UpdateState.VerificationFailed(
-                    "Security Signature Verification Failed: ${verification.message}"
-                )
-            }
-
-            UpdateState.ReadyToInstall(destFile, info, verification)
-        } catch (e: Exception) {
-            destFile.delete()
-            UpdateState.Error("Download failed: ${e.localizedMessage}")
         }
     }
 
