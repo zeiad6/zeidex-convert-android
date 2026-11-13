@@ -592,6 +592,10 @@ fun EnhanceToolView() {
     var grayscale by remember { mutableStateOf(false) }
     var targetImgExt by remember { mutableStateOf("jpg") }
     var quality by remember { mutableFloatStateOf(90f) }
+    // Crop and size presets from the Home screen's power tools, in the same terms: the crop is
+    // centred, and a size preset either caps the width or halves both sides.
+    var cropRatio by remember { mutableStateOf<String?>(null) }
+    var sizePreset by remember { mutableStateOf("original") }
 
     var processedFile by remember { mutableStateOf<File?>(null) }
     var isProcessing by remember { mutableStateOf(false) }
@@ -735,6 +739,52 @@ fun EnhanceToolView() {
                         }
                     }
 
+                    Text(
+                        text = stringResource(R.string.tool_crop_ratio),
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        listOf(
+                            null to stringResource(R.string.crop_original),
+                            "1:1" to stringResource(R.string.crop_square),
+                            "16:9" to stringResource(R.string.crop_16_9),
+                            "4:3" to stringResource(R.string.crop_4_3)
+                        ).forEach { (ratio, label) ->
+                            FilterChip(
+                                selected = cropRatio == ratio,
+                                onClick = { cropRatio = ratio },
+                                label = { Text(label, style = MaterialTheme.typography.labelSmall) }
+                            )
+                        }
+                    }
+
+                    Text(
+                        text = stringResource(R.string.tool_scale),
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        listOf(
+                            "original" to stringResource(R.string.res_original),
+                            "1920" to stringResource(R.string.res_1920px),
+                            "1080" to stringResource(R.string.res_1080px),
+                            "half" to stringResource(R.string.scale_half)
+                        ).forEach { (preset, label) ->
+                            FilterChip(
+                                selected = sizePreset == preset,
+                                onClick = { sizePreset = preset },
+                                label = { Text(label, style = MaterialTheme.typography.labelSmall) }
+                            )
+                        }
+                    }
+
                     Column {
                         Text("Quality: ${quality.toInt()}%", style = MaterialTheme.typography.bodySmall)
                         Slider(
@@ -785,6 +835,9 @@ fun EnhanceToolView() {
                                         sharpen = sharpen,
                                         autoEnhance = autoContrast,
                                         upscale2x = upscale2x,
+                                        maxWidth = if (sizePreset == "original" || sizePreset == "half") null else sizePreset.toInt(),
+                                        scalePercent = if (sizePreset == "half") 50 else null,
+                                        cropRatio = cropRatio,
                                         stripMetadata = true
                                     )
                                 }

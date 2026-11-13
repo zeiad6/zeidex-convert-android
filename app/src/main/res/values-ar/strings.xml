@@ -103,6 +103,9 @@
     <string name="crop_4_3">4:3</string>
     <string name="crop_9_16">9:16</string>
     <string name="scale_original">100%</string>
+    <string name="res_1920px">عرض 1920 بكسل</string>
+    <string name="res_1080px">عرض 1080 بكسل</string>
+    <string name="scale_half">نصف الحجم 50%</string>
     <string name="strip_metadata">إزالة البيانات الوصفية</string>
     <string name="strip_metadata_desc">حذف EXIF والموقع الجغرافي والتعليقات</string>
     <string name="conversion_done_title">Zeidex Convert • اكتمل</string>
