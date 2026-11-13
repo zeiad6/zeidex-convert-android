@@ -58,24 +58,15 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: |
-          KS_PASS="${KEYSTORE_PASSWORD:-zeidex_keystore_pass_2026}"
-          KS_ALIAS="${KEY_ALIAS:-zeidex}"
-          mkdir -p keystore app/keystore
-          if [ -n "$RELEASE_KEYSTORE_BASE64" ]; then
-            echo "Using provided secret keystore..."
-            echo "$RELEASE_KEYSTORE_BASE64" | base64 --decode > keystore/release.keystore
-          else
-            echo "Auto-generating production release keystore for signing..."
-            keytool -genkeypair -v \
-              -keystore keystore/release.keystore \
-              -alias "$KS_ALIAS" \
-              -keyalg RSA \
-              -keysize 2048 \
-              -validity 10000 \
-              -storepass "$KS_PASS" \
-              -keypass "$KS_PASS" \
-              -dname "CN=Zeidex Convert, OU=Mobile, O=Zeidex, C=US"
+          # Never mint a key here. A tag built with a fresh keystore publishes an APK that no
+          # existing install can upgrade, because Android only replaces an app when the signer
+          # matches. That is how the v1.2.0 asset ended up signed by a different key.
+          if [ -z "${RELEASE_KEYSTORE_BASE64:-}" ] || [ -z "${KEYSTORE_PASSWORD:-}" ]; then
+            echo "::error title=Missing signing key::RELEASE_KEYSTORE_BASE64 and KEYSTORE_PASSWORD must be set as repository secrets. Generating a new key at release time breaks every future update."
+            exit 1
           fi
+          mkdir -p keystore app/keystore
+          echo "$RELEASE_KEYSTORE_BASE64" | base64 --decode > keystore/release.keystore
           cp keystore/release.keystore app/keystore/release.keystore
 
       - name: Build Signed Release APK & Bundle
@@ -84,19 +75,30 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: |
-          export KEYSTORE_PASSWORD="${KEYSTORE_PASSWORD:-zeidex_keystore_pass_2026}"
+          export KEYSTORE_PASSWORD="$KEYSTORE_PASSWORD"
           export KEY_ALIAS="${KEY_ALIAS:-zeidex}"
           export KEY_PASSWORD="$KEYSTORE_PASSWORD"
           ./gradlew assembleRelease bundleRelease --build-cache --no-daemon
 
       - name: Verify Signed APK with Apksigner
+        env:
+          EXPECTED_CERT_SHA256: "d24bf9dfb3f1b9acb0f48fb1940b3eacc3875cdb19e7869f4b1281fdecb9366e"
         run: |
           APK_PATH=$(find app/build/outputs/apk/release -name "*.apk" | head -n 1)
           echo "Found release APK at: $APK_PATH"
           if command -v apksigner &> /dev/null; then
-            apksigner verify --verbose "$APK_PATH"
+            APKSIGNER=apksigner
           else
-            $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose "$APK_PATH"
+            APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          fi
+          "$APKSIGNER" verify --verbose "$APK_PATH"
+          SIGNER=$("$APKSIGNER" verify --print-certs "$APK_PATH" \
+            | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' \
+            | tr -d '\r' | head -n 1)
+          echo "Signer: $SIGNER"
+          if [ "$SIGNER" != "$EXPECTED_CERT_SHA256" ]; then
+            echo "::error title=Wrong signing key::$APK_PATH is signed by $SIGNER, not the official $EXPECTED_CERT_SHA256. Refusing to publish."
+            exit 1
           fi
 
       - name: Package Artifacts & Generate SHA-256 Checksums
@@ -150,7 +152,7 @@ jobs:
           - Android App Bundle (AAB): For Google Play and distribution
           - Checksums: SHA256SUMS.txt
           - Resumable Conversions: In-app task pause, resume, and persistent task recovery
-          - Offline First: Zero internet permissions requested.
+          - Offline conversions: no analytics and no uploads. The only network use is the optional update check.
           EOF
 
           echo "Uploading release assets for $TAG_NAME..."
