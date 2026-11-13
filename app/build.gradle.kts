@@ -76,6 +76,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     packaging {
         resources {
@@ -101,6 +102,9 @@ dependencies {
     implementation(libs.pdfbox.android)
 
     testImplementation(libs.junit)
+    // Android's android.jar ships a stubbed org.json that throws "not mocked" in JVM tests.
+    // The real implementation shadows it so manifest parsing is exercised, not skipped.
+    testImplementation("org.json:json:20231013")
 
     debugImplementation(libs.androidx.ui.tooling)
 }
