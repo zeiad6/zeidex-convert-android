@@ -16,6 +16,7 @@ import com.zeidex.convert.service.ConversionForegroundService
 import com.zeidex.convert.util.PackageUpdateInfo
 import com.zeidex.convert.util.UpdateChecker
 import com.zeidex.convert.util.UpdateState
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -50,6 +51,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _maxDimension = MutableStateFlow<Int?>(null)
     val maxDimension: StateFlow<Int?> = _maxDimension.asStateFlow()
+
+    // Power-tool options (Swivel/Tangerine parity): scale, crop and metadata.
+    private val _scalePercent = MutableStateFlow<Int?>(null)
+    val scalePercent: StateFlow<Int?> = _scalePercent.asStateFlow()
+
+    private val _cropRatio = MutableStateFlow<String?>(null)
+    val cropRatio: StateFlow<String?> = _cropRatio.asStateFlow()
+
+    private val _stripMetadata = MutableStateFlow(true)
+    val stripMetadata: StateFlow<Boolean> = _stripMetadata.asStateFlow()
 
     // Updates management
     private val _updateState = MutableStateFlow<UpdateState>(UpdateState.Idle)
@@ -100,6 +111,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setMaxDimension(dim: Int?) {
         _maxDimension.value = dim
+    }
+
+    fun setScalePercent(percent: Int?) {
+        _scalePercent.value = percent
+    }
+
+    fun setCropRatio(ratio: String?) {
+        _cropRatio.value = ratio
+    }
+
+    fun setStripMetadata(strip: Boolean) {
+        _stripMetadata.value = strip
     }
 
     fun addUris(uris: List<Uri>) {
@@ -246,42 +269,56 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val context = getApplication<Application>()
         ConversionForegroundService.start(context, "Zeidex Convert: Processing tasks...")
 
+        _isConverting.value = true
         conversionJob = viewModelScope.launch {
-            _isConverting.value = true
+            var completed = false
+            try {
+                while (!isPaused) {
+                    val nextTask = _tasks.value.firstOrNull { it.status == TaskStatus.PENDING } ?: break
 
-            while (!isPaused) {
-                val nextTask = _tasks.value.firstOrNull { it.status == TaskStatus.PENDING } ?: break
-
-                updateTaskStatus(nextTask.id, TaskStatus.PROCESSING)
-                ConversionForegroundService.updateProgress(
-                    context,
-                    "Converting ${nextTask.inputFile.name} → ${nextTask.targetFormat.label}",
-                    (nextTask.progress * 100).toInt()
-                )
-
-                val result = engine.processTask(
-                    task = nextTask,
-                    compressionQuality = _compressionQuality.value,
-                    maxWidth = _maxDimension.value
-                ) { prog ->
-                    updateTaskProgress(nextTask.id, prog)
+                    updateTaskStatus(nextTask.id, TaskStatus.PROCESSING)
                     ConversionForegroundService.updateProgress(
                         context,
-                        "Converting ${nextTask.inputFile.name} (${(prog * 100).toInt()}%)",
-                        (prog * 100).toInt()
+                        "Converting ${nextTask.inputFile.name} → ${nextTask.targetFormat.label}",
+                        (nextTask.progress * 100).toInt()
                     )
-                }
 
-                if (isPaused) {
-                    updateTaskStatus(nextTask.id, TaskStatus.PAUSED)
-                } else {
-                    updateTaskResult(result)
+                    val result = try {
+                        engine.processTask(
+                            task = nextTask,
+                            compressionQuality = _compressionQuality.value,
+                            maxWidth = _maxDimension.value,
+                            scalePercent = _scalePercent.value,
+                            cropRatio = _cropRatio.value,
+                            stripMetadata = _stripMetadata.value
+                        ) { prog ->
+                            updateTaskProgress(nextTask.id, prog)
+                            ConversionForegroundService.updateProgress(
+                                context,
+                                "Converting ${nextTask.inputFile.name} (${(prog * 100).toInt()}%)",
+                                (prog * 100).toInt()
+                            )
+                        }
+                    } catch (cancel: CancellationException) {
+                        updateTaskStatus(nextTask.id, TaskStatus.PAUSED)
+                        saveTasks()
+                        throw cancel
+                    }
+
+                    if (isPaused) {
+                        updateTaskStatus(nextTask.id, TaskStatus.PAUSED)
+                    } else {
+                        updateTaskResult(result)
+                    }
+                    saveTasks()
                 }
-                saveTasks()
+                completed = true
+            } finally {
+                _isConverting.value = false
+                if (completed) {
+                    ConversionForegroundService.stop(context, "All files converted and saved to Download/ZeidexConvert")
+                }
             }
-
-            _isConverting.value = false
-            ConversionForegroundService.stop(context, "All files converted and saved to Download/ZeidexConvert")
         }
     }
 

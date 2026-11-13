@@ -22,91 +22,110 @@ data class Format(
             Format("webp", "WEBP", Category.IMAGE),
             Format("pdf", "PDF", Category.IMAGE),
             Format("bmp", "BMP", Category.IMAGE),
-            Format("heic", "HEIC", Category.IMAGE),
-            Format("avif", "AVIF", Category.IMAGE),
             Format("ico", "ICO", Category.IMAGE),
 
             // Video
             Format("mp4", "MP4", Category.VIDEO),
-            Format("webm", "WEBM", Category.VIDEO),
-            Format("mkv", "MKV", Category.VIDEO),
-            Format("gif", "GIF", Category.VIDEO),
-            Format("mp3", "MP3 (Audio)", Category.VIDEO),
+            Format("m4a", "M4A (Audio)", Category.VIDEO),
 
             // Audio
-            Format("mp3", "MP3", Category.AUDIO),
             Format("m4a", "M4A", Category.AUDIO),
-            Format("wav", "WAV", Category.AUDIO),
-            Format("aac", "AAC", Category.AUDIO),
-            Format("flac", "FLAC", Category.AUDIO),
-            Format("ogg", "OGG", Category.AUDIO),
+            Format("wav", "WAV (Desktop)", Category.AUDIO),
 
             // PDF
             Format("png", "PNG (Images)", Category.PDF),
             Format("jpg", "JPG (Images)", Category.PDF),
             Format("pdf", "PDF (Optimized)", Category.PDF),
+            Format("docx", "Word (DOCX)", Category.PDF),
+            Format("txt", "Text (TXT)", Category.PDF),
+
+            // Documents
+            Format("txt", "TXT", Category.DOCUMENT),
+            Format("md", "Markdown", Category.DOCUMENT),
+            Format("docx", "Word (DOCX)", Category.DOCUMENT),
+
+            // Subtitles
+            Format("srt", "SRT", Category.SUBTITLE),
+            Format("vtt", "WebVTT", Category.SUBTITLE),
+            Format("ass", "ASS", Category.SUBTITLE),
+            Format("txt", "Plain text", Category.SUBTITLE),
 
             // Archive
             Format("zip", "ZIP", Category.ARCHIVE),
             Format("tar", "TAR", Category.ARCHIVE)
         )
 
+        /**
+         * Formats the current selection can be turned into. Only what the on-device engines
+         * actually implement is listed: offering MP3 or 1080p upscaling here would produce a
+         * file with a wrong extension or a silently identical video.
+         */
         fun targetsFor(category: Category, currentExt: String): List<Format> {
-            return when (category) {
+            val current = currentExt.lowercase()
+            val targets = when (category) {
                 Category.IMAGE -> listOf(
                     Format("jpg", "JPG", Category.IMAGE),
                     Format("png", "PNG", Category.IMAGE),
                     Format("webp", "WEBP", Category.IMAGE),
-                    Format("mp4", "MP4 (فيديو الصورة الحية)", Category.VIDEO),
                     Format("bmp", "BMP", Category.IMAGE),
                     Format("pdf", "PDF", Category.IMAGE),
                     Format("ico", "ICO", Category.IMAGE),
+                    Format("mp4", "MP4 (Live Photo video)", Category.VIDEO),
                     Format("zip", "ZIP (Archive)", Category.ARCHIVE)
                 )
 
                 Category.VIDEO -> listOf(
-                    Format("mp4", "MP4 (Optimized/FHD)", Category.VIDEO),
-                    Format("m4a", "M4A (Extract Audio)", Category.AUDIO),
-                    Format("mp3", "MP3 (Audio)", Category.AUDIO),
-                    Format("aac", "AAC (Audio)", Category.AUDIO),
+                    Format("mp4", "MP4 (fast remux)", Category.VIDEO),
+                    Format("m4a", "M4A (Extract audio)", Category.AUDIO),
                     Format("zip", "ZIP", Category.ARCHIVE)
                 )
 
                 Category.AUDIO -> listOf(
                     Format("m4a", "M4A", Category.AUDIO),
-                    Format("mp3", "MP3", Category.AUDIO),
-                    Format("wav", "WAV", Category.AUDIO),
-                    Format("aac", "AAC", Category.AUDIO),
                     Format("zip", "ZIP", Category.ARCHIVE)
-                ).filter { it.ext != currentExt.lowercase() }
-
-                Category.PDF -> listOf(
-                    Format("png", "PNG (Images)", Category.IMAGE),
-                    Format("jpg", "JPG (Images)", Category.IMAGE),
-                    Format("pdf", "PDF (Optimized)", Category.PDF),
-                    Format("zip", "ZIP (All Pages)", Category.ARCHIVE)
                 )
 
-                Category.ARCHIVE -> listOf(
-                    Format("extract", "Extract All (فك الضغط)", Category.ARCHIVE),
-                    Format("zip", "ZIP", Category.ARCHIVE)
+                Category.PDF -> listOf(
+                    Format("png", "PNG (Pages)", Category.IMAGE),
+                    Format("jpg", "JPG (Pages)", Category.IMAGE),
+                    Format("docx", "Word (DOCX)", Category.DOCUMENT),
+                    Format("txt", "Text (TXT)", Category.DOCUMENT),
+                    Format("zip", "ZIP (Pages)", Category.ARCHIVE)
                 )
 
                 Category.DOCUMENT -> listOf(
-                    Format("pdf", "PDF", Category.DOCUMENT),
+                    Format("txt", "TXT", Category.DOCUMENT),
+                    Format("md", "Markdown", Category.DOCUMENT),
+                    Format("docx", "Word (DOCX)", Category.DOCUMENT),
+                    Format("zip", "ZIP", Category.ARCHIVE)
+                )
+
+                Category.SUBTITLE -> listOf(
+                    Format("srt", "SRT", Category.SUBTITLE),
+                    Format("vtt", "WebVTT", Category.SUBTITLE),
+                    Format("ass", "ASS", Category.SUBTITLE),
+                    Format("txt", "Plain text", Category.SUBTITLE),
+                    Format("zip", "ZIP", Category.ARCHIVE)
+                )
+
+                Category.ARCHIVE -> listOf(
+                    Format("extract", "Extract All", Category.ARCHIVE),
                     Format("zip", "ZIP", Category.ARCHIVE)
                 )
             }
+            // Converting "photo.jpg" to "JPG" is a no-op; keep the list honest.
+            return targets.filterNot { it.ext.equals(current, ignoreCase = true) }
         }
 
         fun detectCategory(ext: String, mimeType: String?): Category {
             val lower = ext.lowercase()
             return when {
-                mimeType?.startsWith("image/") == true || lower in listOf("jpg", "jpeg", "png", "webp", "heic", "avif", "bmp", "gif", "ico", "dng", "cr2", "nef", "arw") -> Category.IMAGE
-                mimeType?.startsWith("video/") == true || lower in listOf("mp4", "mov", "mkv", "webm", "avi", "3gp", "ts", "m2ts") -> Category.VIDEO
-                mimeType?.startsWith("audio/") == true || lower in listOf("mp3", "m4a", "wav", "aac", "flac", "ogg", "opus") -> Category.AUDIO
+                mimeType?.startsWith("image/") == true || lower in listOf("jpg", "jpeg", "png", "webp", "heic", "heif", "avif", "bmp", "gif", "ico", "dng", "cr2", "nef", "arw", "tif", "tiff") -> Category.IMAGE
+                mimeType?.startsWith("video/") == true || lower in listOf("mp4", "mov", "m4v", "mkv", "webm", "avi", "3gp", "ts", "m2ts", "wmv", "flv") -> Category.VIDEO
+                mimeType?.startsWith("audio/") == true || lower in listOf("mp3", "m4a", "wav", "aac", "flac", "ogg", "opus", "aiff", "amr") -> Category.AUDIO
                 lower == "pdf" || mimeType == "application/pdf" -> Category.PDF
-                lower in listOf("zip", "tar", "gz", "7z", "rar", "bz2", "xz") -> Category.ARCHIVE
+                lower in listOf("srt", "vtt", "ass", "ssa", "smi", "lrc") -> Category.SUBTITLE
+                lower in listOf("zip", "tar", "tgz", "gz", "7z", "rar", "bz2", "xz") -> Category.ARCHIVE
                 else -> Category.DOCUMENT
             }
         }

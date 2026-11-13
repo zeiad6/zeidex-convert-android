@@ -2,135 +2,131 @@ package com.zeidex.convert.engine
 
 import android.content.Context
 import android.media.MediaCodec
-import android.media.MediaCodecInfo
 import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.media.MediaMuxer
 import com.zeidex.convert.model.FileItem
-import com.zeidex.convert.service.ConversionForegroundService
-import com.zeidex.convert.util.StorageManager
+import com.zeidex.convert.util.AtomicWriter
 import java.io.File
 import java.nio.ByteBuffer
 
+/**
+ * Container-level video processing that Android can do correctly without a re-encode.
+ *
+ * The previous implementation claimed to "upscale to 1080p" and "boost the bitrate" while
+ * only copying compressed samples and editing the header, so the output was byte-for-byte
+ * the same resolution and quality. Those modes are gone: what remains is a fast remux, with an
+ * optional metadata strip, and an honest error when real transcoding is required.
+ */
 object VideoEnhancer {
 
-    enum class EnhancementMode {
-        BALANCED,      // Clean up artifacts, optimize bitrate, normalize FPS
-        FHD_UPSCALE,   // Upscale to 1080p with high-bitrate encoder
-        AUDIO_BOOST    // Maximize audio fidelity and normalize loudness
+    enum class RemuxMode {
+        /** Copy every track as-is into a fresh MP4 (fixes broken indexes, rewrites the container). */
+        FAST,
+        /** Same, but drop location/creation metadata that betrays where the clip was recorded. */
+        STRIP_METADATA
     }
 
-    /**
-     * Enhances video and audio streams using hardware-accelerated MediaCodec and MediaMuxer.
-     * Automatically saves to /Download/ZeidexConvert/Videos/ and posts a system notification with the path.
-     */
-    fun enhanceVideo(
+    fun remuxVideo(
         context: Context,
         input: FileItem,
         outputDir: File,
-        mode: EnhancementMode = EnhancementMode.BALANCED,
+        mode: RemuxMode = RemuxMode.FAST,
         onProgress: ((Float) -> Unit)? = null
     ): File {
-        val baseName = input.name.substringBeforeLast('.')
-        val targetDir = StorageManager.getSubfolder(context, specialName = "Videos")
-        val outFile = File(targetDir, "${baseName}_enhanced.mp4")
+        val baseName = input.name.substringBeforeLast('.').ifBlank { "video" }
+        val suffix = if (mode == RemuxMode.STRIP_METADATA) "_clean" else "_remux"
+        val outName = "$baseName$suffix.mp4"
 
         val pfd = context.contentResolver.openFileDescriptor(input.uri, "r")
             ?: throw IllegalStateException("Cannot access video file: ${input.name}")
 
-        val extractor = MediaExtractor()
+        var extractor: MediaExtractor? = null
         var muxer: MediaMuxer? = null
-
+        val staged = AtomicWriter.stage(outputDir, outName)
         try {
-            extractor.setDataSource(pfd.fileDescriptor)
-            muxer = MediaMuxer(outFile.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
+            extractor = MediaExtractor().apply { setDataSource(pfd.fileDescriptor) }
+            muxer = MediaMuxer(staged.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
 
             val trackMap = mutableMapOf<Int, Int>()
-            var videoDurationUs = 0L
+            var durationUs = 0L
+            var hasVideo = false
 
             for (i in 0 until extractor.trackCount) {
-                val format = extractor.getTrackFormat(i)
-                val mime = format.getString(MediaFormat.KEY_MIME) ?: ""
-
-                if (mime.startsWith("video/")) {
-                    if (format.containsKey(MediaFormat.KEY_DURATION)) {
-                        videoDurationUs = format.getLong(MediaFormat.KEY_DURATION)
-                    }
-
-                    // Boost video bitrate and profile parameters in format
-                    val width = format.getInteger(MediaFormat.KEY_WIDTH)
-                    val height = format.getInteger(MediaFormat.KEY_HEIGHT)
-
-                    val targetBitrate = when (mode) {
-                        EnhancementMode.FHD_UPSCALE -> 10_000_000 // 10 Mbps
-                        EnhancementMode.BALANCED -> 6_000_000   // 6 Mbps
-                        EnhancementMode.AUDIO_BOOST -> 4_000_000
-                    }
-                    format.setInteger(MediaFormat.KEY_BIT_RATE, targetBitrate)
-                    val muxerTrack = muxer.addTrack(format)
-                    trackMap[i] = muxerTrack
-                    extractor.selectTrack(i)
-                } else if (mime.startsWith("audio/")) {
-                    format.setInteger(MediaFormat.KEY_BIT_RATE, 256_000) // 256 kbps audio
-                    val muxerTrack = muxer.addTrack(format)
-                    trackMap[i] = muxerTrack
-                    extractor.selectTrack(i)
+                val source = extractor.getTrackFormat(i)
+                val mime = source.getString(MediaFormat.KEY_MIME) ?: continue
+                if (!mime.startsWith("video/") && !mime.startsWith("audio/")) continue
+                if (mime.startsWith("video/")) hasVideo = true
+                if (source.containsKey(MediaFormat.KEY_DURATION)) {
+                    durationUs = maxOf(durationUs, source.getLong(MediaFormat.KEY_DURATION))
                 }
+                val format = copyFormat(source, mode == RemuxMode.STRIP_METADATA)
+                trackMap[i] = muxer.addTrack(format)
+                extractor.selectTrack(i)
             }
+            if (trackMap.isEmpty()) throw IllegalStateException("No video or audio track found in ${input.name}")
+            if (!hasVideo) throw IllegalStateException("${input.name} has no video track to remux")
 
             muxer.start()
-
-            val bufferSize = 1024 * 1024
-            val buffer = ByteBuffer.allocateDirect(bufferSize)
-            val bufferInfo = MediaCodec.BufferInfo()
-
+            // 4 MiB covers 4K keyframes; readSampleData returns an error rather than overrunning.
+            val buffer = ByteBuffer.allocateDirect(4 * 1024 * 1024)
+            val info = MediaCodec.BufferInfo()
             while (true) {
-                val trackIndex = extractor.sampleTrackIndex
-                if (trackIndex < 0) break
-
-                val muxerTrack = trackMap[trackIndex]
-                if (muxerTrack != null) {
-                    bufferInfo.size = extractor.readSampleData(buffer, 0)
-                    if (bufferInfo.size < 0) break
-
-                    bufferInfo.presentationTimeUs = extractor.sampleTime
-                    bufferInfo.flags = extractor.sampleFlags
-                    bufferInfo.offset = 0
-
-                    muxer.writeSampleData(muxerTrack, buffer, bufferInfo)
-
-                    if (videoDurationUs > 0) {
-                        val progress = (bufferInfo.presentationTimeUs.toFloat() / videoDurationUs).coerceIn(0f, 1f)
-                        onProgress?.invoke(progress)
+                val track = extractor.sampleTrackIndex
+                if (track < 0) break
+                val muxTrack = trackMap[track]
+                info.size = extractor.readSampleData(buffer, 0)
+                if (info.size < 0) break
+                if (muxTrack != null) {
+                    info.presentationTimeUs = extractor.sampleTime
+                    info.flags = extractor.sampleFlags
+                    info.offset = 0
+                    muxer.writeSampleData(muxTrack, buffer, info)
+                    if (durationUs > 0) {
+                        onProgress?.invoke((info.presentationTimeUs.toFloat() / durationUs).coerceIn(0f, 1f))
                     }
                 }
                 extractor.advance()
             }
-
             muxer.stop()
             muxer.release()
             muxer = null
-
-            extractor.release()
-            pfd.close()
-
-            // Save to public storage and trigger notification with path
-            StorageManager.saveToPhoneStorage(context, outFile, specialName = "Videos")
-            val message = "تم تحسين وحفظ الفيديو بنجاح في:\n${outFile.absolutePath}"
-            ConversionForegroundService.showCompletionNotification(
-                context = context,
-                title = "Zeidex Convert • تحسين جودة الفيديو",
-                message = message,
-                file = outFile
-            )
-
-            return outFile
-        } catch (e: Exception) {
-            muxer?.release()
-            extractor.release()
-            pfd.close()
-            outFile.delete()
-            throw e
+            onProgress?.invoke(1f)
+            return AtomicWriter.commit(staged, outputDir, outName)
+        } catch (t: Throwable) {
+            AtomicWriter.discard(staged)
+            throw t
+        } finally {
+            try { muxer?.release() } catch (_: Exception) {}
+            try { extractor?.release() } catch (_: Exception) {}
+            try { pfd.close() } catch (_: Exception) {}
         }
+    }
+
+    /** Copy the stream configuration; optionally drop the location/creation tags. */
+    private fun copyFormat(source: MediaFormat, stripMetadata: Boolean): MediaFormat {
+        val format = MediaFormat()
+        for (key in source.keys) {
+            if (stripMetadata && key.startsWith("metadata") ) continue
+            if (stripMetadata && (key == "location" || key == "creation-time" || key == "compilation-time")) continue
+            try {
+                // MediaFormat has no type-erased getter: probe each supported type in turn.
+                val value: Any = runCatching { source.getInteger(key) }.getOrNull()
+                    ?: runCatching { source.getLong(key) }.getOrNull()
+                    ?: runCatching { source.getFloat(key) }.getOrNull()
+                    ?: runCatching { source.getString(key) }.getOrNull()
+                    ?: runCatching { source.getByteBuffer(key) }.getOrNull()
+                    ?: continue
+                when (value) {
+                    is Int -> format.setInteger(key, value)
+                    is Long -> format.setLong(key, value)
+                    is Float -> format.setFloat(key, value)
+                    is String -> format.setString(key, value)
+                    is ByteBuffer -> format.setByteBuffer(key, value)
+                }
+            } catch (_: Exception) {
+            }
+        }
+        return format
     }
 }

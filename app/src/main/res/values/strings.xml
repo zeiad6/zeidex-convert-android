@@ -37,7 +37,7 @@
     <string name="tool_pdf_split">Split PDF</string>
     <string name="tool_qr">QR Code</string>
     <string name="tool_enhance">Enhance Quality</string>
-    <string name="video_enhance_title">Video Quality Booster</string>
+    <string name="video_enhance_title">Video Container Tools</string>
     <string name="image_enhance_title">Image Quality Booster</string>
     <string name="enhance_button">Enhance &amp; Save</string>
     <string name="play_video">Play Video</string>
@@ -92,4 +92,24 @@
     <string name="download_install">Download &amp; Verify Update</string>
     <string name="installing_update">Install Now</string>
     <string name="downloading_update">Downloading Update: %1$d%%</string>
+
+    <string name="category_subtitle">Subtitles</string>
+    <string name="tool_strip_metadata">Strip Metadata</string>
+    <string name="tool_crop_ratio">Crop Ratio</string>
+    <string name="tool_scale">Scale</string>
+    <string name="crop_original">Original</string>
+    <string name="crop_square">Square 1:1</string>
+    <string name="crop_16_9">16:9</string>
+    <string name="crop_4_3">4:3</string>
+    <string name="crop_9_16">9:16</string>
+    <string name="scale_original">100%</string>
+    <string name="strip_metadata">Strip metadata</string>
+    <string name="strip_metadata_desc">Remove EXIF, GPS location and comments</string>
+    <string name="conversion_done_title">Zeidex Convert • Done</string>
+    <string name="conversion_done_message">Saved to:\n%1$s</string>
+    <string name="tool_docx">PDF to Word</string>
+    <string name="tool_subtitles">Subtitle Converter</string>
+    <string name="video_remux_fast">Fast remux (no re-encode)</string>
+    <string name="video_strip_metadata">Strip location metadata</string>
+    <string name="video_remux_note">Android copies the compressed streams, so quality is unchanged. Use the desktop app for real transcoding.</string>
 </resources>

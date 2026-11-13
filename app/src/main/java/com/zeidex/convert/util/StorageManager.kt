@@ -5,8 +5,8 @@ import android.media.MediaScannerConnection
 import android.os.Environment
 import com.zeidex.convert.model.Category
 import java.io.File
-import java.io.FileInputStream
 import java.io.FileOutputStream
+import java.io.IOException
 
 object StorageManager {
 
@@ -40,6 +40,7 @@ object StorageManager {
             category == Category.PDF -> "PDF"
             category == Category.ARCHIVE -> "Archives"
             category == Category.DOCUMENT -> "Documents"
+            category == Category.SUBTITLE -> "Subtitles"
             else -> "General"
         }
         val subfolder = File(root, folderName)
@@ -48,8 +49,44 @@ object StorageManager {
     }
 
     /**
-     * Automatically saves a converted file to the phone's dedicated Zeidex storage
-     * and notifies Android's MediaScanner so it immediately appears in Gallery/Files.
+     * Commits a file an engine already staged in [dir] and returns its final path.
+     * The engine stages next to the destination, so this is a plain atomic rename.
+     */
+    fun deliver(
+        context: Context,
+        staged: File,
+        category: Category? = null,
+        specialName: String? = null,
+        targetFileName: String? = null
+    ): File {
+        val targetDir = getSubfolder(context, category, specialName)
+        val name = targetFileName ?: staged.name
+        val finalFile = AtomicWriter.commit(staged, targetDir, name)
+        scan(context, finalFile)
+        return finalFile
+    }
+
+    /**
+     * True when [file] already lives under the shared ZeidexConvert tree.
+     * Used to keep engines that write straight to the destination from being copied twice.
+     */
+    fun isInPublicStorage(context: Context, file: File): Boolean {
+        return FileSafety.isInside(file, getRootDir(context))
+    }
+
+    /** Idempotent hand-off: copies only when the engine produced its output elsewhere. */
+    fun finalizeOutput(context: Context, file: File, category: Category? = null): File {
+        if (!file.exists()) throw IOException("Output disappeared: ${file.name}")
+        if (isInPublicStorage(context, file)) {
+            scan(context, file)
+            return file
+        }
+        return deliver(context, file, category)
+    }
+
+    /**
+     * Copies [sourceFile] into the shared tree without ever overwriting an existing name.
+     * Kept for callers that still hand over a fully written file.
      */
     fun saveToPhoneStorage(
         context: Context,
@@ -59,40 +96,49 @@ object StorageManager {
         targetFileName: String? = null
     ): File {
         val targetDir = getSubfolder(context, category, specialName)
-        val fileName = targetFileName ?: sourceFile.name
-        val destFile = File(targetDir, fileName)
-
-        // If source is already in the target location, skip copying
-        if (sourceFile.absolutePath != destFile.absolutePath) {
-            FileInputStream(sourceFile).use { input ->
-                FileOutputStream(destFile).use { output ->
-                    input.copyTo(output)
-                }
-            }
+        val name = targetFileName ?: sourceFile.name
+        if (sourceFile.exists() && FileSafety.isInside(sourceFile, targetDir)) {
+            scan(context, sourceFile)
+            return sourceFile
         }
-
-        // Notify MediaScanner for public visibility
+        val staged = AtomicWriter.stage(targetDir, name)
         try {
-            MediaScannerConnection.scanFile(
-                context.applicationContext,
-                arrayOf(destFile.absolutePath),
-                null,
-                null
-            )
-        } catch (_: Exception) {}
-
-        return destFile
+            sourceFile.inputStream().use { input ->
+                FileOutputStream(staged).use { output -> input.copyTo(output, 64 * 1024) }
+            }
+            val finalFile = AtomicWriter.commit(staged, targetDir, name)
+            scan(context, finalFile)
+            return finalFile
+        } catch (t: Throwable) {
+            AtomicWriter.discard(staged)
+            throw t
+        }
     }
 
     /**
      * Scans an entire directory so extracted archives appear in file managers.
+     * Bounded so a huge tree cannot stall the caller.
      */
     fun scanDirectory(context: Context, dir: File) {
         try {
-            val paths = dir.walkTopDown().filter { it.isFile }.map { it.absolutePath }.toList().toTypedArray()
+            val paths = dir.walkTopDown()
+                .onEnter { it == dir || it.name != ".thumbnails" }
+                .filter { it.isFile }
+                .take(2_000)
+                .map { it.absolutePath }
+                .toList()
+                .toTypedArray()
             if (paths.isNotEmpty()) {
                 MediaScannerConnection.scanFile(context.applicationContext, paths, null, null)
             }
-        } catch (_: Exception) {}
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun scan(context: Context, file: File) {
+        try {
+            MediaScannerConnection.scanFile(context.applicationContext, arrayOf(file.absolutePath), null, null)
+        } catch (_: Exception) {
+        }
     }
 }

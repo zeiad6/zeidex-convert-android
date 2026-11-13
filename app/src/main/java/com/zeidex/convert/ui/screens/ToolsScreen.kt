@@ -583,7 +583,7 @@ fun EnhanceToolView() {
     var isVideo by remember { mutableStateOf(false) }
 
     // Video options
-    var videoMode by remember { mutableStateOf(VideoEnhancer.EnhancementMode.FHD_UPSCALE) }
+    var videoMode by remember { mutableStateOf(VideoEnhancer.RemuxMode.FAST) }
 
     // Image options
     var sharpen by remember { mutableStateOf(true) }
@@ -675,21 +675,21 @@ fun EnhanceToolView() {
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         FilterChip(
-                            selected = videoMode == VideoEnhancer.EnhancementMode.FHD_UPSCALE,
-                            onClick = { videoMode = VideoEnhancer.EnhancementMode.FHD_UPSCALE },
-                            label = { Text(stringResource(R.string.video_upscale_1080p)) }
+                            selected = videoMode == VideoEnhancer.RemuxMode.FAST,
+                            onClick = { videoMode = VideoEnhancer.RemuxMode.FAST },
+                            label = { Text(stringResource(R.string.video_remux_fast)) }
                         )
                         FilterChip(
-                            selected = videoMode == VideoEnhancer.EnhancementMode.BALANCED,
-                            onClick = { videoMode = VideoEnhancer.EnhancementMode.BALANCED },
-                            label = { Text("Bitrate Boost") }
-                        )
-                        FilterChip(
-                            selected = videoMode == VideoEnhancer.EnhancementMode.AUDIO_BOOST,
-                            onClick = { videoMode = VideoEnhancer.EnhancementMode.AUDIO_BOOST },
-                            label = { Text("Audio Boost") }
+                            selected = videoMode == VideoEnhancer.RemuxMode.STRIP_METADATA,
+                            onClick = { videoMode = VideoEnhancer.RemuxMode.STRIP_METADATA },
+                            label = { Text(stringResource(R.string.video_strip_metadata)) }
                         )
                     }
+                    Text(
+                        text = stringResource(R.string.video_remux_note),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             } else {
                 // Image Enhancement Controls
@@ -764,7 +764,7 @@ fun EnhanceToolView() {
                             if (isVideo) {
                                 val outDir = StorageManager.getSubfolder(context, Category.VIDEO)
                                 val res = withContext(Dispatchers.IO) {
-                                    VideoEnhancer.enhanceVideo(
+                                    VideoEnhancer.remuxVideo(
                                         context = context,
                                         input = item,
                                         outputDir = outDir,
@@ -784,7 +784,8 @@ fun EnhanceToolView() {
                                         grayscale = grayscale,
                                         sharpen = sharpen,
                                         autoEnhance = autoContrast,
-                                        upscale2x = upscale2x
+                                        upscale2x = upscale2x,
+                                        stripMetadata = true
                                     )
                                 }
                                 processedFile = res

@@ -6,9 +6,9 @@ import android.graphics.Color
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
 import com.google.zxing.qrcode.QRCodeWriter
+import com.zeidex.convert.util.AtomicWriter
 import com.zeidex.convert.util.StorageManager
 import java.io.File
-import java.io.FileOutputStream
 
 object QrEngine {
 
@@ -32,8 +32,9 @@ object QrEngine {
     fun saveQrToFile(context: Context, content: String, fileName: String = "qrcode.png"): File {
         val bitmap = generateQrBitmap(content)
         val targetDir = StorageManager.getSubfolder(context, specialName = "QR")
-        val file = File(targetDir, fileName)
-        FileOutputStream(file).use { out ->
+        // Same rule as every other output: stage, fsync, rename, never overwrite a QR the user
+        // already saved (`qrcode 2.png`).
+        val file = AtomicWriter.write(targetDir, fileName) { out ->
             bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
         }
         StorageManager.saveToPhoneStorage(context, file, specialName = "QR")

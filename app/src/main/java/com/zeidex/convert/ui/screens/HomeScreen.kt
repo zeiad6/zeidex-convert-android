@@ -50,6 +50,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -87,6 +88,9 @@ fun HomeScreen(
     val isConverting by viewModel.isConverting.collectAsState()
     val compressionQuality by viewModel.compressionQuality.collectAsState()
     val maxDimension by viewModel.maxDimension.collectAsState()
+    val scalePercent by viewModel.scalePercent.collectAsState()
+    val cropRatio by viewModel.cropRatio.collectAsState()
+    val stripMetadata by viewModel.stripMetadata.collectAsState()
 
     var chosenFormat by remember { mutableStateOf<Format?>(null) }
 
@@ -307,6 +311,83 @@ fun HomeScreen(
                                         )
                                     )
                                 }
+                            }
+
+                            // Crop ratio presets
+                            Text(
+                                text = stringResource(R.string.tool_crop_ratio),
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium
+                            )
+                            val cropOptions = listOf(
+                                null to stringResource(R.string.crop_original),
+                                "1:1" to stringResource(R.string.crop_square),
+                                "16:9" to stringResource(R.string.crop_16_9),
+                                "4:3" to stringResource(R.string.crop_4_3),
+                                "9:16" to stringResource(R.string.crop_9_16)
+                            )
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                items(cropOptions) { (ratio, label) ->
+                                    FilterChip(
+                                        selected = cropRatio == ratio,
+                                        onClick = { viewModel.setCropRatio(ratio) },
+                                        label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = ZeidexOrange,
+                                            selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                                        )
+                                    )
+                                }
+                            }
+
+                            // Relative scaling presets
+                            Text(
+                                text = stringResource(R.string.tool_scale),
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium
+                            )
+                            val scaleOptions = listOf(
+                                null to stringResource(R.string.scale_original),
+                                75 to "75%",
+                                50 to "50%",
+                                25 to "25%"
+                            )
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                items(scaleOptions) { (percent, label) ->
+                                    FilterChip(
+                                        selected = scalePercent == percent,
+                                        onClick = { viewModel.setScalePercent(percent) },
+                                        label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = ZeidexOrange,
+                                            selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                                        )
+                                    )
+                                }
+                            }
+
+                            // Metadata stripping (EXIF/GPS)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = stringResource(R.string.strip_metadata),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.strip_metadata_desc),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Switch(
+                                    checked = stripMetadata,
+                                    onCheckedChange = { viewModel.setStripMetadata(it) }
+                                )
                             }
 
                             // Storage info

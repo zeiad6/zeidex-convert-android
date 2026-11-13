@@ -92,4 +92,24 @@
     <string name="download_install">تنزيل والتحقق من التحديث</string>
     <string name="installing_update">تثبيت التحديث الآن</string>
     <string name="downloading_update">جارٍ تنزيل التحديث: %1$d%%</string>
+
+    <string name="category_subtitle">الترجمات</string>
+    <string name="tool_strip_metadata">إزالة البيانات الوصفية</string>
+    <string name="tool_crop_ratio">نسبة القص</string>
+    <string name="tool_scale">المقياس</string>
+    <string name="crop_original">الأصل</string>
+    <string name="crop_square">مربع 1:1</string>
+    <string name="crop_16_9">16:9</string>
+    <string name="crop_4_3">4:3</string>
+    <string name="crop_9_16">9:16</string>
+    <string name="scale_original">100%</string>
+    <string name="strip_metadata">إزالة البيانات الوصفية</string>
+    <string name="strip_metadata_desc">حذف EXIF والموقع الجغرافي والتعليقات</string>
+    <string name="conversion_done_title">Zeidex Convert • اكتمل</string>
+    <string name="conversion_done_message">حُفظ في:\n%1$s</string>
+    <string name="tool_docx">PDF إلى Word</string>
+    <string name="tool_subtitles">تحويل الترجمات</string>
+    <string name="video_remux_fast">إعادة تغليف سريعة (دون إعادة ترميز)</string>
+    <string name="video_strip_metadata">إزالة بيانات الموقع</string>
+    <string name="video_remux_note">أندرويد ينسخ المسارات المضغوطة كما هي، فالجودة لا تتغير. استخدم نسخة الحاسوب لإعادة الترميز الحقيقية.</string>
 </resources>

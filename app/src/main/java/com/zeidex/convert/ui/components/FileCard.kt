@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.material.icons.filled.Subtitles
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -57,6 +58,7 @@ fun FileCard(
                 Category.PDF -> Icons.Default.PictureAsPdf
                 Category.ARCHIVE -> Icons.Default.FolderZip
                 Category.DOCUMENT -> Icons.Default.Description
+                Category.SUBTITLE -> Icons.Default.Subtitles
             }
 
             Icon(

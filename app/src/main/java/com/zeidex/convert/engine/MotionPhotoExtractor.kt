@@ -3,6 +3,7 @@ package com.zeidex.convert.engine
 import android.content.Context
 import com.zeidex.convert.model.FileItem
 import com.zeidex.convert.service.ConversionForegroundService
+import com.zeidex.convert.util.AtomicWriter
 import com.zeidex.convert.util.StorageManager
 import java.io.File
 import java.io.FileInputStream
@@ -37,22 +38,20 @@ object MotionPhotoExtractor {
 
         val baseName = input.name.substringBeforeLast('.')
         val targetDir = StorageManager.getSubfolder(context, specialName = "LivePhotos")
-        val outFile = File(targetDir, "${baseName}_motion.mp4")
+        val outFile = AtomicWriter.stage(targetDir, "${baseName}_motion.mp4")
 
         try {
             // Strategy 0: Direct MOV / MP4 file (Apple Live Photo video track)
             if (input.name.endsWith(".mov", ignoreCase = true) || input.name.endsWith(".mp4", ignoreCase = true)) {
                 tempFile.copyTo(outFile, overwrite = true)
-                finalizeExtractedVideo(context, outFile)
-                return outFile
+                return finalizeExtractedVideo(context, outFile, "${baseName}_motion.mp4")
             }
 
             // Strategy 1: Apple .livp or ZIP Archive containing .mov / .mp4
             if (isZipOrLivp(tempFile, input.name)) {
                 val extracted = extractFromZip(tempFile, outFile)
                 if (extracted) {
-                    finalizeExtractedVideo(context, outFile)
-                    return outFile
+                    return finalizeExtractedVideo(context, outFile, "${baseName}_motion.mp4")
                 }
             }
 
@@ -61,8 +60,7 @@ object MotionPhotoExtractor {
             if (fastXmpOffset != null && fastXmpOffset.first > 0 && fastXmpOffset.second > 0) {
                 extractRangeToFile(tempFile, fastXmpOffset.first, fastXmpOffset.second, outFile)
                 if (outFile.exists() && outFile.length() > 1024) {
-                    finalizeExtractedVideo(context, outFile)
-                    return outFile
+                    return finalizeExtractedVideo(context, outFile, "${baseName}_motion.mp4")
                 }
             }
 
@@ -71,8 +69,7 @@ object MotionPhotoExtractor {
             if (samsungOffset != null && samsungOffset.first > 0 && samsungOffset.second > 0) {
                 extractRangeToFile(tempFile, samsungOffset.first, samsungOffset.second, outFile)
                 if (outFile.exists() && outFile.length() > 1024) {
-                    finalizeExtractedVideo(context, outFile)
-                    return outFile
+                    return finalizeExtractedVideo(context, outFile, "${baseName}_motion.mp4")
                 }
             }
 
@@ -81,8 +78,7 @@ object MotionPhotoExtractor {
             if (xmpOffset != null && xmpOffset.first > 0 && xmpOffset.second > 0) {
                 extractRangeToFile(tempFile, xmpOffset.first, xmpOffset.second, outFile)
                 if (outFile.exists() && outFile.length() > 1024) {
-                    finalizeExtractedVideo(context, outFile)
-                    return outFile
+                    return finalizeExtractedVideo(context, outFile, "${baseName}_motion.mp4")
                 }
             }
 
@@ -91,8 +87,7 @@ object MotionPhotoExtractor {
             if (ftypOffset != null && ftypOffset.first > 0 && ftypOffset.second > 0) {
                 extractRangeToFile(tempFile, ftypOffset.first, ftypOffset.second, outFile)
                 if (outFile.exists() && outFile.length() > 1024) {
-                    finalizeExtractedVideo(context, outFile)
-                    return outFile
+                    return finalizeExtractedVideo(context, outFile, "${baseName}_motion.mp4")
                 }
             }
 
@@ -102,21 +97,32 @@ object MotionPhotoExtractor {
             )
         } finally {
             tempFile.delete()
+            // Never leave a partial MP4 behind when a strategy failed.
+            if (outFile.exists()) AtomicWriter.discard(outFile)
         }
     }
 
-    private fun finalizeExtractedVideo(context: Context, outFile: File) {
-        // Save to public storage & index in media scanner
-        val savedFile = StorageManager.saveToPhoneStorage(context, outFile, specialName = "LivePhotos")
+    private fun finalizeExtractedVideo(context: Context, staged: File, name: String): File {
+        if (!isPlausibleMp4(staged)) {
+            AtomicWriter.discard(staged)
+            throw IllegalStateException(
+                "The embedded video is not a valid MP4. The photo may use an unsupported motion format."
+            )
+        }
+        val saved = AtomicWriter.commit(staged, staged.parentFile ?: context.cacheDir, name)
+        StorageManager.scanDirectory(context, saved.parentFile ?: context.cacheDir)
+        return saved
+    }
 
-        // Post Android System Notification with saved path
-        val message = "تم حفظ الفيديو بنجاح في:\n${savedFile.absolutePath}"
-        ConversionForegroundService.showCompletionNotification(
-            context = context,
-            title = "Zeidex Convert • استخراج فيديو الصورة الحية",
-            message = message,
-            file = savedFile
-        )
+    /** A real MP4 starts with a size-prefixed box and carries `ftyp` in the first box. */
+    private fun isPlausibleMp4(file: File): Boolean {
+        if (!file.exists() || file.length() < 64) return false
+        val head = ByteArray(12)
+        FileInputStream(file).use { input -> if (input.read(head) != head.size) return false }
+        val size = ((head[0].toLong() and 0xFF) shl 24) or ((head[1].toLong() and 0xFF) shl 16) or
+            ((head[2].toLong() and 0xFF) shl 8) or (head[3].toLong() and 0xFF)
+        val type = String(head, 4, 4, Charsets.US_ASCII)
+        return size in 8..file.length() && type in KNOWN_BOX_TYPES
     }
 
     private fun isZipOrLivp(file: File, fileName: String): Boolean {
