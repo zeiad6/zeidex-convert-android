@@ -3,10 +3,13 @@ package com.zeidex.convert.ui.viewmodel
 import android.app.Application
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.provider.OpenableColumns
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.zeidex.convert.engine.ConversionEngine
+import com.zeidex.convert.engine.LocalDropReceiver
+import com.zeidex.convert.engine.QrEngine
 import com.zeidex.convert.model.Category
 import com.zeidex.convert.model.ConversionTask
 import com.zeidex.convert.model.FileItem
@@ -14,14 +17,17 @@ import com.zeidex.convert.model.Format
 import com.zeidex.convert.model.TaskStatus
 import com.zeidex.convert.service.ConversionForegroundService
 import com.zeidex.convert.util.PackageUpdateInfo
+import com.zeidex.convert.util.StorageManager
 import com.zeidex.convert.util.UpdateChecker
 import com.zeidex.convert.util.UpdateState
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -66,6 +72,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _updateState = MutableStateFlow<UpdateState>(UpdateState.Idle)
     val updateState: StateFlow<UpdateState> = _updateState.asStateFlow()
 
+    // LocalDrop: files sent from the desktop app over the local network.
+    private val _localDrop = MutableStateFlow<LocalDropState>(LocalDropState.Idle)
+    val localDrop: StateFlow<LocalDropState> = _localDrop.asStateFlow()
+    private var dropSession: LocalDropReceiver.Session? = null
+    private var dropJob: Job? = null
+
     private val tasksStorageFile: File
         get() = File(getApplication<Application>().filesDir, "conversion_tasks.json")
 
@@ -103,6 +115,80 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun dismissUpdate() {
         _updateState.value = UpdateState.Idle
+    }
+
+    /** Reads the pairing code from [photo], connects and shows the offer. Deletes the photo. */
+    fun startLocalDrop(photo: File) {
+        dismissLocalDrop()
+        dropJob = viewModelScope.launch {
+            _localDrop.value = LocalDropState.Connecting
+            try {
+                val text = withContext(Dispatchers.IO) { QrEngine.decodeFromFile(photo) }
+                if (text == null) {
+                    _localDrop.value = LocalDropState.NoCode
+                    return@launch
+                }
+                val link = LocalDropReceiver.Link.parse(text)
+                val session = withContext(Dispatchers.IO) { LocalDropReceiver.connect(link, Build.MODEL ?: "Android") }
+                dropSession = session
+                _localDrop.value = LocalDropState.Offer(session.sender, session.files, session.totalBytes)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _localDrop.value = LocalDropState.Failed(e.message ?: e.javaClass.simpleName)
+            } finally {
+                photo.delete()
+            }
+        }
+    }
+
+    fun acceptLocalDrop() {
+        // Stays in dropSession while receiving, so dismissLocalDrop can close the socket.
+        val session = dropSession ?: return
+        dropJob = viewModelScope.launch {
+            _localDrop.value = LocalDropState.Receiving(0f)
+            try {
+                val app = getApplication<Application>()
+                val saved = withContext(Dispatchers.IO) {
+                    val dest = StorageManager.getSubfolder(app, specialName = "LocalDrop")
+                    session.use {
+                        it.accept(dest) { got, total ->
+                            _localDrop.value = LocalDropState.Receiving(got.toFloat() / maxOf(total, 1L))
+                        }
+                    }.also { StorageManager.scanDirectory(app, dest) }
+                }
+                _localDrop.value = LocalDropState.Done(saved)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _localDrop.value = LocalDropState.Failed(e.message ?: e.javaClass.simpleName)
+            } finally {
+                if (dropSession === session) dropSession = null
+            }
+        }
+    }
+
+    fun declineLocalDrop() {
+        val session = dropSession ?: return
+        dropSession = null
+        _localDrop.value = LocalDropState.Idle
+        viewModelScope.launch(Dispatchers.IO) {
+            session.use { runCatching { it.decline() } }
+        }
+    }
+
+    /** Stops whatever LocalDrop is doing; closing the socket unblocks a transfer in progress. */
+    fun dismissLocalDrop() {
+        dropJob?.cancel()
+        dropJob = null
+        dropSession?.close()
+        dropSession = null
+        _localDrop.value = LocalDropState.Idle
+    }
+
+    override fun onCleared() {
+        dropSession?.close()
+        super.onCleared()
     }
 
     fun setCompressionQuality(q: Int) {
