@@ -5,6 +5,8 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
 import java.io.OutputStream
+import java.nio.file.FileAlreadyExistsException
+import java.nio.file.Files
 import java.util.concurrent.atomic.AtomicLong
 
 /**
@@ -18,6 +20,8 @@ import java.util.concurrent.atomic.AtomicLong
 object AtomicWriter {
 
     private const val PART_SUFFIX = ".zeidex-part"
+    /** Names another process may claim between our check and our move before we give up. */
+    private const val MAX_NAME_RACES = 64
     private val counter = AtomicLong()
 
     /** A hidden sibling of the final file, on the same filesystem. Caller owns the bytes. */
@@ -50,26 +54,48 @@ object AtomicWriter {
 
     /**
      * Moves [staged] to the first free name based on [desiredName] and returns the final file.
-     * Never overwrites: concurrent workers and repeated runs both get their own name.
+     * Never overwrites: `rename(2)` replaces an existing file, so the name is claimed with a hard
+     * link (which fails instead) where the filesystem has them, and with a checked rename where
+     * it does not. `@Synchronized` keeps parallel workers in this process from picking the same
+     * free name.
      */
+    @Synchronized
     fun commit(staged: File, dir: File, desiredName: String): File {
         if (!staged.exists()) throw IOException("Missing staged file ${staged.name}")
         sync(staged)
-        val target = FileSafety.uniqueFile(dir, leafName(desiredName))
-        if (staged.renameTo(target)) return target
-        // Different mount or a filesystem that refuses rename: copy, fsync, then rename the copy.
-        val localPart = File(dir, ".${target.name}.${System.nanoTime()}$PART_SUFFIX")
+        val name = leafName(desiredName)
+        place(staged, dir, name)?.let { return it }
+        // Different mount or a filesystem that refuses rename: copy, fsync, then place the copy.
+        val localPart = File(dir, ".$name.${System.nanoTime()}$PART_SUFFIX")
         try {
             staged.inputStream().use { input ->
                 FileOutputStream(localPart).use { output -> input.copyTo(output, 64 * 1024) }
             }
             sync(localPart)
-            if (!localPart.renameTo(target)) throw IOException("Cannot move output into place")
+            return place(localPart, dir, name) ?: throw IOException("Cannot move output into place")
         } finally {
             if (localPart.exists()) localPart.delete()
             if (staged.exists()) staged.delete()
         }
-        return target
+    }
+
+    /** Gives [src] the first free name in [dir]; null when the filesystem refuses the move. */
+    private fun place(src: File, dir: File, name: String): File? {
+        repeat(MAX_NAME_RACES) {
+            val target = FileSafety.uniqueFile(dir, name)
+            try {
+                Files.createLink(target.toPath(), src.toPath())
+                src.delete()
+                return target
+            } catch (_: FileAlreadyExistsException) {
+                return@repeat
+            } catch (_: Exception) {
+                // No hard links here (FUSE shared storage, FAT): fall back to a checked rename.
+            }
+            if (target.exists()) return@repeat
+            return if (src.renameTo(target)) target else null
+        }
+        throw IOException("Cannot find a free name for $name")
     }
 
     fun discard(staged: File) {

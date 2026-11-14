@@ -115,4 +115,19 @@
     <string name="video_remux_fast">إعادة تغليف سريعة (دون إعادة ترميز)</string>
     <string name="video_strip_metadata">إزالة بيانات الموقع</string>
     <string name="video_remux_note">أندرويد ينسخ المسارات المضغوطة كما هي، فالجودة لا تتغير. استخدم نسخة الحاسوب لإعادة الترميز الحقيقية.</string>
+    <!-- LocalDrop: ملفات مرسلة من تطبيق الحاسوب -->
+    <string name="tool_localdrop">استلام</string>
+    <string name="localdrop_title">استلام من الحاسوب (LocalDrop)</string>
+    <string name="localdrop_hint">على الحاسوب: اسحب الملفات واضغط Alt واختر «إرسال إلى الهاتف»، ثم صوّر الرمز الذي يظهر. يجب أن يكون الجهازان على شبكة Wi-Fi نفسها؛ النقل مشفّر من طرف إلى طرف ولا يغادر شبكتك.</string>
+    <string name="localdrop_scan">صوّر الرمز</string>
+    <string name="localdrop_connecting">جارٍ الاتصال…</string>
+    <string name="localdrop_no_code">لم يُعثر على رمز LocalDrop في الصورة. قرّب الهاتف من الشاشة وحاول مجددًا.</string>
+    <string name="localdrop_offer">يريد %1$s إرسال %2$d ملف، %3$s</string>
+    <string name="localdrop_more">… و%1$d غيرها</string>
+    <string name="localdrop_accept">استلام</string>
+    <string name="localdrop_decline">رفض</string>
+    <string name="localdrop_receiving">جارٍ الاستلام… %1$d%%</string>
+    <string name="localdrop_cancel">إلغاء</string>
+    <string name="localdrop_done">حُفظ %1$d ملف في Downloads/ZeidexConvert/LocalDrop</string>
+    <string name="localdrop_failed">تعذّر LocalDrop: %1$s</string>
 </resources>

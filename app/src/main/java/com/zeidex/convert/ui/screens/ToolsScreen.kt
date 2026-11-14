@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.QrCode
+import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Button
@@ -47,12 +48,14 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -73,6 +76,7 @@ import com.zeidex.convert.model.FileItem
 import com.zeidex.convert.service.ConversionForegroundService
 import com.zeidex.convert.ui.theme.SuccessGreen
 import com.zeidex.convert.ui.theme.ZeidexOrange
+import com.zeidex.convert.ui.viewmodel.LocalDropState
 import com.zeidex.convert.ui.viewmodel.MainViewModel
 import com.zeidex.convert.util.StorageManager
 import kotlinx.coroutines.Dispatchers
@@ -91,7 +95,8 @@ fun ToolsScreen(
         stringResource(R.string.tool_qr),
         stringResource(R.string.tool_motion),
         stringResource(R.string.tool_pdf_merge),
-        stringResource(R.string.tool_enhance)
+        stringResource(R.string.tool_enhance),
+        stringResource(R.string.tool_localdrop)
     )
 
     Column(
@@ -131,6 +136,7 @@ fun ToolsScreen(
                 1 -> MotionPhotoToolView()
                 2 -> PdfToolView()
                 3 -> EnhanceToolView()
+                4 -> LocalDropToolView(viewModel)
             }
         }
     }
@@ -930,3 +936,97 @@ fun EnhanceToolView() {
         }
     }
 }
+
+/** Receives files the desktop app sends with "Send to phone" (see LocalDropReceiver). */
+@Composable
+fun LocalDropToolView(viewModel: MainViewModel) {
+    val context = LocalContext.current
+    val state by viewModel.localDrop.collectAsState()
+    // The camera app can outlive this activity; keep the target path across recreation.
+    var photoPath by rememberSaveable { mutableStateOf<String?>(null) }
+    val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok ->
+        val photo = photoPath?.let(::File)
+        photoPath = null
+        if (ok && photo != null) viewModel.startLocalDrop(photo) else photo?.delete()
+    }
+    val busy = state is LocalDropState.Connecting || state is LocalDropState.Offer || state is LocalDropState.Receiving
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        Text(stringResource(R.string.localdrop_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text(stringResource(R.string.localdrop_hint), style = MaterialTheme.typography.bodyMedium)
+        Button(
+            onClick = {
+                val photo = File(context.cacheDir, "localdrop-${System.currentTimeMillis()}.jpg")
+                photoPath = photo.absolutePath
+                camera.launch(FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", photo))
+            },
+            enabled = !busy,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = ZeidexOrange)
+        ) {
+            Icon(imageVector = Icons.Default.QrCodeScanner, contentDescription = null)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(stringResource(R.string.localdrop_scan), fontWeight = FontWeight.Bold)
+        }
+
+        when (val s = state) {
+            LocalDropState.Idle -> Unit
+            LocalDropState.Connecting -> Row(verticalAlignment = Alignment.CenterVertically) {
+                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(stringResource(R.string.localdrop_connecting))
+            }
+            LocalDropState.NoCode -> Text(stringResource(R.string.localdrop_no_code), color = MaterialTheme.colorScheme.error)
+            is LocalDropState.Offer -> Card(
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        stringResource(
+                            R.string.localdrop_offer,
+                            s.sender.ifEmpty { "?" },
+                            s.files.size,
+                            android.text.format.Formatter.formatShortFileSize(context, s.totalBytes)
+                        ),
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    s.files.take(OFFER_PREVIEW).forEach { Text("• ${it.name}", style = MaterialTheme.typography.bodySmall) }
+                    if (s.files.size > OFFER_PREVIEW) {
+                        Text(stringResource(R.string.localdrop_more, s.files.size - OFFER_PREVIEW), style = MaterialTheme.typography.bodySmall)
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        OutlinedButton(onClick = viewModel::declineLocalDrop) { Text(stringResource(R.string.localdrop_decline)) }
+                        Button(
+                            onClick = viewModel::acceptLocalDrop,
+                            colors = ButtonDefaults.buttonColors(containerColor = ZeidexOrange)
+                        ) { Text(stringResource(R.string.localdrop_accept)) }
+                    }
+                }
+            }
+            is LocalDropState.Receiving -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                LinearProgressIndicator(progress = { s.fraction }, modifier = Modifier.fillMaxWidth(), color = ZeidexOrange)
+                Text(stringResource(R.string.localdrop_receiving, (s.fraction * 100).toInt()))
+                OutlinedButton(onClick = viewModel::dismissLocalDrop) { Text(stringResource(R.string.localdrop_cancel)) }
+            }
+            is LocalDropState.Done -> Text(
+                stringResource(R.string.localdrop_done, s.files.size),
+                color = SuccessGreen,
+                fontWeight = FontWeight.SemiBold
+            )
+            is LocalDropState.Failed -> Text(
+                stringResource(R.string.localdrop_failed, s.message),
+                color = MaterialTheme.colorScheme.error
+            )
+        }
+    }
+}
+
+/** File names listed before "… and N more". */
+private const val OFFER_PREVIEW = 8
