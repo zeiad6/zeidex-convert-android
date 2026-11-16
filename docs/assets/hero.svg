@@ -1,0 +1,230 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="600" viewBox="0 0 1280 600" role="img" aria-labelledby="title desc">
+  <title id="title">Zeidex Convert for Android — any document becomes a PDF on the device</title>
+  <desc id="desc">An animated banner: six document formats orbit a single PDF while the app converts them offline on the phone.</desc>
+
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0A0C11"/>
+      <stop offset="0.55" stop-color="#0E1219"/>
+      <stop offset="1" stop-color="#0B0E14"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#F05A28" stop-opacity="0.30"/>
+      <stop offset="0.45" stop-color="#F05A28" stop-opacity="0.10"/>
+      <stop offset="1" stop-color="#F05A28" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="cardGlow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#FF8A5C" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#FF8A5C" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="comet" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F05A28" stop-opacity="0"/>
+      <stop offset="0.55" stop-color="#FF8A5C" stop-opacity="0.85"/>
+      <stop offset="1" stop-color="#FFD0B8" stop-opacity="1"/>
+    </linearGradient>
+    <linearGradient id="line" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#F05A28" stop-opacity="0.7"/>
+      <stop offset="0.5" stop-color="#2A3242" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#2A3242" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="hair" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#232A38" stop-opacity="0"/>
+      <stop offset="0.15" stop-color="#2A3242"/>
+      <stop offset="1" stop-color="#2A3242" stop-opacity="0.15"/>
+    </linearGradient>
+    <pattern id="dots" width="28" height="28" patternUnits="userSpaceOnUse">
+      <circle cx="1" cy="1" r="1" fill="#2B3444" opacity="0.55"/>
+    </pattern>
+    <filter id="soft" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="10"/>
+    </filter>
+    <filter id="blur2" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="2.2"/>
+    </filter>
+
+    <style><![CDATA[
+      .spin-slow { animation: spin 70s linear infinite; transform-box: view-box; transform-origin: 985px 288px; }
+      .spin-comet { animation: spin 9s linear infinite; transform-box: view-box; transform-origin: 985px 288px; }
+      .float { animation: float 7s ease-in-out infinite; }
+      .float-2 { animation: float 9s ease-in-out infinite 1.2s; }
+      .breathe { animation: breathe 6s ease-in-out infinite; }
+      .live { animation: blink 2.6s ease-in-out infinite; }
+      .orbit { animation: orbit 6s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+      .ghost-a { animation: ghost 9s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+      .ghost-b { animation: ghost 9s ease-in-out infinite 3s; transform-box: fill-box; transform-origin: center; }
+      .drift-a { animation: drift 14s ease-in-out infinite; }
+      .drift-b { animation: drift 18s ease-in-out infinite 2s; }
+      .drift-c { animation: drift 22s ease-in-out infinite 4s; }
+
+      @keyframes spin { to { transform: rotate(360deg); } }
+      @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+      @keyframes breathe { 0%, 100% { opacity: 0.55; } 50% { opacity: 0.95; } }
+      @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+      @keyframes orbit {
+        0%, 100% { opacity: 0.45; }
+        6% { opacity: 1; }
+        20% { opacity: 0.45; }
+      }
+      @keyframes ghost {
+        0%, 100% { opacity: 0.20; transform: translateY(0); }
+        50% { opacity: 0.55; transform: translateY(-4px); }
+      }
+      @keyframes drift {
+        0%, 100% { transform: translate(0, 0); opacity: 0.25; }
+        50% { transform: translate(-10px, -14px); opacity: 0.8; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .spin-slow, .spin-comet, .float, .float-2, .breathe, .live, .orbit, .ghost-a, .ghost-b,
+        .drift-a, .drift-b, .drift-c { animation: none !important; }
+      }
+    ]]></style>
+  </defs>
+
+  <!-- ground -->
+  <rect width="1280" height="600" fill="url(#bg)"/>
+  <rect width="1280" height="600" fill="url(#dots)" opacity="0.55"/>
+  <ellipse cx="985" cy="288" rx="430" ry="330" fill="url(#glow)"/>
+  <ellipse cx="300" cy="80" rx="360" ry="200" fill="#1A2230" opacity="0.20" filter="url(#soft)"/>
+  <rect x="0" y="0" width="1280" height="1" fill="url(#line)" opacity="0.6"/>
+
+  <!-- ── text block (RTL) ────────────────────────────────────────────── -->
+  <g font-family="'Noto Sans Arabic','Vazirmatn','Segoe UI',system-ui,-apple-system,sans-serif">
+    <g>
+      <rect x="438" y="96" width="262" height="32" rx="16" fill="#F05A28" fill-opacity="0.08" stroke="#F05A28" stroke-opacity="0.32"/>
+      <circle cx="684" cy="112" r="4" fill="#35D0A0" class="live"/>
+      <text x="676" y="116.5" text-anchor="end" font-family="ui-monospace,'SF Mono','Cascadia Mono',Menlo,monospace" font-size="10.5" letter-spacing="1.3" fill="#FFAE8A">ZEIDEX CONVERT · ANDROID 1.3.0</text>
+    </g>
+
+    <text x="700" y="218" text-anchor="start" direction="rtl" font-size="48" font-weight="700" fill="#F2F5FB" letter-spacing="-0.3">حوّل أي مستند</text>
+    <text x="700" y="274" text-anchor="start" direction="rtl" font-size="48" font-weight="700" fill="#F2F5FB" letter-spacing="-0.3">إلى <tspan fill="#FF8A5C">PDF</tspan> على الجهاز</text>
+
+    <g font-family="'Inter','Segoe UI',system-ui,-apple-system,sans-serif" font-size="14.5" fill="#93A0B5">
+      <text x="700" y="318" text-anchor="end">Any document becomes a PDF with selectable text.</text>
+      <text x="700" y="341" text-anchor="end">No upload, no account, no network.</text>
+    </g>
+
+    <!-- chips -->
+    <g font-size="12.5" fill="#C6D0E1">
+      <rect x="330" y="374" width="98" height="36" rx="18" fill="#121822" stroke="#2A3242"/>
+      <circle cx="412" cy="392" r="3.4" fill="#F05A28"/>
+      <text x="402" y="396.5" text-anchor="start" direction="rtl">بلا إنترنت</text>
+
+      <rect x="452" y="374" width="96" height="36" rx="18" fill="#121822" stroke="#2A3242"/>
+      <circle cx="532" cy="392" r="3.4" fill="#F05A28"/>
+      <text x="524" y="396.5" text-anchor="start" direction="rtl">بلا رفع</text>
+
+      <rect x="570" y="374" width="130" height="36" rx="18" fill="#121822" stroke="#2A3242"/>
+      <circle cx="684" cy="392" r="3.4" fill="#35D0A0"/>
+      <text x="676" y="396.5" text-anchor="start" direction="rtl">APK موقّع</text>
+    </g>
+
+    <text x="700" y="442" text-anchor="end" font-family="ui-monospace,'SF Mono','Cascadia Mono',Menlo,monospace" font-size="11" fill="#5E6A7E">sha256 · d24bf9df… · versionCode 4</text>
+  </g>
+
+  <!-- ── conversion ring ─────────────────────────────────────────────── -->
+  <g class="float">
+    <circle cx="985" cy="288" r="168" fill="none" stroke="#232B3A" stroke-width="1" stroke-dasharray="1 9" class="spin-slow"/>
+    <circle cx="985" cy="288" r="168" fill="none" stroke="#1B2230" stroke-width="1"/>
+    <circle cx="985" cy="288" r="150" fill="none" stroke="#1C2432" stroke-width="1"/>
+    <circle cx="985" cy="288" r="150" fill="none" stroke="url(#comet)" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="170 772" class="spin-comet" filter="url(#blur2)"/>
+    <circle cx="985" cy="288" r="150" fill="none" stroke="url(#comet)" stroke-width="1.2" stroke-linecap="round" stroke-dasharray="170 772" class="spin-comet"/>
+
+    <!-- centre glow + stacked cards -->
+    <ellipse cx="985" cy="292" rx="150" ry="140" fill="url(#cardGlow)" class="breathe"/>
+
+    <g transform="translate(985 288)">
+      <g transform="rotate(-9)"><g class="ghost-a">
+        <rect x="-58" y="-74" width="116" height="148" rx="10" fill="#1A2130" stroke="#2A3344"/>
+      </g></g>
+      <g transform="rotate(9)"><g class="ghost-b">
+        <rect x="-58" y="-74" width="116" height="148" rx="10" fill="#1A2130" stroke="#2A3344"/>
+      </g></g>
+    </g>
+
+    <g class="float-2">
+      <g transform="translate(985 288)">
+        <path d="M-51 -79 H40 L62 -57 V68 a11 11 0 0 1 -11 11 H-51 a11 11 0 0 1 -11 -11 V-68 a11 11 0 0 1 11 -11 Z" fill="#F7F9FD"/>
+        <path d="M40 -79 L62 -57 L40 -57 Z" fill="#DCE4F1"/>
+        <rect x="-46" y="-46" width="56" height="6" rx="3" fill="#C9D3E4"/>
+        <rect x="-46" y="-30" width="88" height="6" rx="3" fill="#DDE5F1"/>
+        <rect x="-46" y="-14" width="72" height="6" rx="3" fill="#DDE5F1"/>
+        <rect x="-46" y="2" width="80" height="6" rx="3" fill="#DDE5F1"/>
+        <rect x="-46" y="18" width="52" height="6" rx="3" fill="#DDE5F1"/>
+        <rect x="-46" y="46" width="62" height="20" rx="5" fill="#F05A28"/>
+        <text x="-15" y="60" text-anchor="middle" font-family="ui-monospace,'SF Mono',Menlo,monospace" font-size="11" font-weight="700" fill="#FFFFFF" letter-spacing="1">PDF</text>
+      </g>
+    </g>
+
+    <!-- orbit chips (60 degrees apart, r=150) -->
+    <g font-family="ui-monospace,'SF Mono','Cascadia Mono',Menlo,monospace" font-size="10.5" text-anchor="middle">
+      <g class="orbit" style="animation-delay:0s">
+        <rect x="954" y="107" width="62" height="62" rx="14" fill="#111722" stroke="#38445A"/>
+        <text x="985" y="143" fill="#D5DEEE">DOCX</text>
+      </g>
+      <g class="orbit" style="animation-delay:1s">
+        <rect x="1084" y="182" width="62" height="62" rx="14" fill="#111722" stroke="#38445A"/>
+        <text x="1115" y="218" fill="#D5DEEE">XLSX</text>
+      </g>
+      <g class="orbit" style="animation-delay:2s">
+        <rect x="1084" y="332" width="62" height="62" rx="14" fill="#111722" stroke="#38445A"/>
+        <text x="1115" y="368" fill="#D5DEEE">PPTX</text>
+      </g>
+      <g class="orbit" style="animation-delay:3s">
+        <rect x="954" y="407" width="62" height="62" rx="14" fill="#111722" stroke="#38445A"/>
+        <text x="985" y="443" fill="#D5DEEE">EPUB</text>
+      </g>
+      <g class="orbit" style="animation-delay:4s">
+        <rect x="824" y="332" width="62" height="62" rx="14" fill="#111722" stroke="#38445A"/>
+        <text x="855" y="368" fill="#D5DEEE">ODT</text>
+      </g>
+      <g class="orbit" style="animation-delay:5s">
+        <rect x="824" y="182" width="62" height="62" rx="14" fill="#111722" stroke="#38445A"/>
+        <text x="855" y="218" fill="#D5DEEE">RTF</text>
+      </g>
+    </g>
+
+    <!-- accepted badge -->
+    <g transform="translate(1050 356)">
+      <circle r="17" fill="#0F1A16" stroke="#35D0A0" stroke-opacity="0.5"/>
+      <path d="M-6 0.5 L-1.6 5 L6.5 -4.5" fill="none" stroke="#35D0A0" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+
+    <!-- dust -->
+    <circle cx="770" cy="168" r="2.2" fill="#FF8A5C" class="drift-a"/>
+    <circle cx="1194" cy="392" r="1.8" fill="#FFB38A" class="drift-b"/>
+    <circle cx="1150" cy="140" r="1.5" fill="#7E8A9E" class="drift-c"/>
+    <circle cx="806" cy="420" r="1.6" fill="#FF8A5C" class="drift-b"/>
+  </g>
+
+  <!-- ── editorial rail ─────────────────────────────────────────────── -->
+  <g>
+    <line x1="64" y1="96" x2="64" y2="456" stroke="#242C3A" stroke-width="1"/>
+    <line x1="58" y1="96" x2="70" y2="96" stroke="#3A4557" stroke-width="1"/>
+    <line x1="58" y1="456" x2="70" y2="456" stroke="#3A4557" stroke-width="1"/>
+    <text transform="rotate(-90 50 276)" x="50" y="276" text-anchor="middle" font-family="ui-monospace,'SF Mono','Cascadia Mono',Menlo,monospace" font-size="9.5" letter-spacing="3.4" fill="#4C5768">ZEIDEXSOFT · ANDROID</text>
+  </g>
+
+  <!-- ── footer stats ────────────────────────────────────────────────── -->
+  <rect x="64" y="486" width="1152" height="1" fill="url(#hair)"/>
+  <g font-family="'Noto Sans Arabic','Segoe UI',system-ui,sans-serif">
+    <g>
+      <text x="64" y="522" font-size="27" font-weight="700" fill="#F2F5FB">14</text>
+      <text x="120" y="521" font-size="12" fill="#7E8A9E">صيغة مستندات</text>
+    </g>
+    <rect x="316" y="500" width="1" height="34" fill="#232A38"/>
+    <g>
+      <text x="352" y="522" font-size="27" font-weight="700" fill="#F2F5FB">1</text>
+      <text x="380" y="521" font-size="12" fill="#7E8A9E">نموذج وسيط واحد</text>
+    </g>
+    <rect x="596" y="500" width="1" height="34" fill="#232A38"/>
+    <g>
+      <text x="632" y="522" font-size="27" font-weight="700" fill="#F2F5FB">57</text>
+      <text x="688" y="521" font-size="12" fill="#7E8A9E">اختبار وحدة</text>
+    </g>
+    <rect x="868" y="500" width="1" height="34" fill="#232A38"/>
+    <g>
+      <text x="904" y="522" font-size="27" font-weight="700" fill="#35D0A0">0</text>
+      <text x="932" y="521" font-size="12" fill="#7E8A9E">بايت يُرفَع إلى الشبكة</text>
+    </g>
+  </g>
+</svg>
