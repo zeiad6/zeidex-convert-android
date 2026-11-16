@@ -105,7 +105,7 @@
     <string name="scale_original">100%</string>
     <string name="res_1920px">1920 px wide</string>
     <string name="res_1080px">1080 px wide</string>
-    <string name="scale_half">50% scale</string>
+    <string name="scale_half" formatted="false">50% scale</string>
     <string name="strip_metadata">Strip metadata</string>
     <string name="strip_metadata_desc">Remove EXIF, GPS location and comments</string>
     <string name="conversion_done_title">Zeidex Convert • Done</string>

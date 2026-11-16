@@ -5,6 +5,7 @@ import android.media.MediaCodec
 import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.media.MediaMuxer
+import android.os.Build
 import com.zeidex.convert.model.FileItem
 import com.zeidex.convert.util.AtomicWriter
 import java.io.File
@@ -79,7 +80,10 @@ object VideoEnhancer {
                 if (info.size < 0) break
                 if (muxTrack != null) {
                     info.presentationTimeUs = extractor.sampleTime
-                    info.flags = extractor.sampleFlags
+                    // Extractor and codec flags only share the sync bit: SAMPLE_FLAG_PARTIAL_FRAME (4) has
+                    // the value of BUFFER_FLAG_END_OF_STREAM, so the raw value could end the track early.
+                    info.flags =
+                        if (extractor.sampleFlags and MediaExtractor.SAMPLE_FLAG_SYNC != 0) MediaCodec.BUFFER_FLAG_KEY_FRAME else 0
                     info.offset = 0
                     muxer.writeSampleData(muxTrack, buffer, info)
                     if (durationUs > 0) {
@@ -105,6 +109,10 @@ object VideoEnhancer {
 
     /** Copy the stream configuration; optionally drop the location/creation tags. */
     private fun copyFormat(source: MediaFormat, stripMetadata: Boolean): MediaFormat {
+        // MediaFormat.getKeys() arrived in API 29; calling it on Android 8-9 throws
+        // NoSuchMethodError. The muxer accepts the extractor's format as it is, and the
+        // container-level location tag is never copied by MediaMuxer anyway.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return source
         val format = MediaFormat()
         for (key in source.keys) {
             if (stripMetadata && key.startsWith("metadata") ) continue

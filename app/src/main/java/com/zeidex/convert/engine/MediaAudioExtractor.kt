@@ -80,7 +80,10 @@ object MediaAudioExtractor {
                 bufferInfo.size = extractor.readSampleData(buffer, 0)
                 if (bufferInfo.size < 0) break
                 bufferInfo.presentationTimeUs = extractor.sampleTime
-                bufferInfo.flags = extractor.sampleFlags
+                // Extractor and codec flags only share the sync bit: SAMPLE_FLAG_PARTIAL_FRAME (4) has
+                // the value of BUFFER_FLAG_END_OF_STREAM, so the raw value could end the track early.
+                bufferInfo.flags =
+                    if (extractor.sampleFlags and MediaExtractor.SAMPLE_FLAG_SYNC != 0) MediaCodec.BUFFER_FLAG_KEY_FRAME else 0
                 muxer.writeSampleData(muxerTrack, buffer, bufferInfo)
                 extractor.advance()
                 samples++
