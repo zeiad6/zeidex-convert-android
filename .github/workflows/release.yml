@@ -142,7 +142,10 @@ jobs:
             TITLE="Zeidex Convert Android ${TAG_NAME} (Signed Release)"
           fi
 
-          cat << 'EOF' > release_notes.md
+          if [ -f RELEASE_NOTES.md ]; then
+            cp RELEASE_NOTES.md release_notes.md
+          else
+            cat << 'EOF' > release_notes.md
           ### Zeidex Convert for Android (Signed Release)
 
           100% Offline & Private Local File Converter.
@@ -154,6 +157,7 @@ jobs:
           - Resumable Conversions: In-app task pause, resume, and persistent task recovery
           - Offline conversions: no analytics and no uploads. The only network use is the optional update check.
           EOF
+          fi
 
           echo "Uploading release assets for $TAG_NAME..."
           MAX_RETRIES=5
@@ -175,4 +179,5 @@ jobs:
             echo "Failed to upload release after $MAX_RETRIES attempts."
             exit 1
           fi
+          gh release edit "$TAG_NAME" --title "$TITLE" --notes-file release_notes.md
           echo "Release created and signed assets uploaded successfully!"

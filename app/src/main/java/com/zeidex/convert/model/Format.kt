@@ -94,9 +94,10 @@ data class Format(
                 )
 
                 Category.DOCUMENT -> listOf(
-                    Format("txt", "TXT", Category.DOCUMENT),
-                    Format("md", "Markdown", Category.DOCUMENT),
+                    Format("pdf", "PDF", Category.PDF),
                     Format("docx", "Word (DOCX)", Category.DOCUMENT),
+                    Format("txt", "Text (TXT)", Category.DOCUMENT),
+                    Format("md", "Markdown", Category.DOCUMENT),
                     Format("zip", "ZIP", Category.ARCHIVE)
                 )
 
@@ -126,6 +127,9 @@ data class Format(
                 lower == "pdf" || mimeType == "application/pdf" -> Category.PDF
                 lower in listOf("srt", "vtt", "ass", "ssa", "smi", "lrc") -> Category.SUBTITLE
                 lower in listOf("zip", "tar", "tgz", "gz", "7z", "rar", "bz2", "xz") -> Category.ARCHIVE
+                // Anything else is a document: text, Word, spreadsheets, slides, OpenDocument,
+                // RTF, HTML, EPUB — and the legacy binaries, which fail with an explanation
+                // instead of producing a wrong file.
                 else -> Category.DOCUMENT
             }
         }

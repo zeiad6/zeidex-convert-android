@@ -75,22 +75,29 @@ class ConversionEngine(private val context: Context) {
                 }
 
                 input.category == Category.PDF && targetExt == "txt" -> {
-                    onProgress(0.3f)
-                    val text = DocumentConverter.readText(context, input)
-                    DocumentConverter.writeText(
-                        text, "txt",
-                        StorageManager.getSubfolder(context, Category.DOCUMENT),
-                        input.name.substringBeforeLast('.')
+                    onProgress(0.2f)
+                    val job = coroutineContext[kotlinx.coroutines.Job]
+                    DocumentConverter.convert(
+                        context = context,
+                        input = input,
+                        targetExt = "txt",
+                        outputDir = StorageManager.getSubfolder(context, Category.DOCUMENT),
+                        onProgress = { progress -> onProgress(0.2f + progress * 0.7f) },
+                        checkActive = { if (job?.isActive == false) throw CancellationException("Cancelled") }
                     )
                 }
 
-                input.category == Category.DOCUMENT && targetExt in setOf("txt", "md", "docx") -> {
-                    onProgress(0.3f)
-                    val text = DocumentConverter.readText(context, input)
-                    DocumentConverter.writeText(
-                        text, targetExt,
-                        StorageManager.getSubfolder(context, Category.DOCUMENT),
-                        input.name.substringBeforeLast('.')
+                input.category == Category.DOCUMENT && targetExt in setOf("pdf", "docx", "txt", "md") -> {
+                    onProgress(0.15f)
+                    val job = coroutineContext[kotlinx.coroutines.Job]
+                    val destination = if (targetExt == "pdf") Category.PDF else Category.DOCUMENT
+                    DocumentConverter.convert(
+                        context = context,
+                        input = input,
+                        targetExt = targetExt,
+                        outputDir = StorageManager.getSubfolder(context, destination),
+                        onProgress = { progress -> onProgress(0.15f + progress * 0.8f) },
+                        checkActive = { if (job?.isActive == false) throw CancellationException("Cancelled") }
                     )
                 }
 

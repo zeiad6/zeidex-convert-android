@@ -14,6 +14,12 @@ object MediaAudioExtractor {
 
     private const val POLL = 100
 
+    private val MUXABLE_AUDIO = setOf(
+        MediaFormat.MIMETYPE_AUDIO_AAC,
+        MediaFormat.MIMETYPE_AUDIO_AMR_NB,
+        MediaFormat.MIMETYPE_AUDIO_AMR_WB
+    )
+
     /**
      * Copies the first audio track of a video into an `.m4a` (AAC in an MP4 container).
      *
@@ -60,6 +66,15 @@ object MediaAudioExtractor {
             }
             if (audioTrackIndex == -1 || audioFormat == null) {
                 throw IllegalStateException("No audio track found inside ${input.name}")
+            }
+            // The MP4 muxer writes AAC and AMR only. Handing it an MP3 or FLAC track fails deep
+            // inside the native writer, so the mismatch is reported here instead.
+            val codec = audioFormat.getString(MediaFormat.KEY_MIME) ?: ""
+            if (codec !in MUXABLE_AUDIO) {
+                throw UnsupportedOperationException(
+                    "The audio track in ${input.name} is ${codec.substringAfter('/').uppercase()}. " +
+                        "On-device extraction writes M4A (AAC) only. Use the desktop app for MP3, WAV, FLAC or OGG."
+                )
             }
             extractor.selectTrack(audioTrackIndex)
 

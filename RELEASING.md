@@ -1,14 +1,15 @@
 # Releasing the Android build
 
-The APK is signed on a workstation and published by hand. CI never sees the keystore, so it
-builds an unsigned/debug package even when everything is green. This file records the steps and
-the two facts that already broke an upgrade path once.
+The APK can be signed on a workstation, but the supported path is the GitHub workflow: a `v*` tag
+builds, signs and publishes the APK and the AAB. The keystore reaches CI only as a repository
+secret, never as a committed file. This file records the steps and the two facts that already
+broke an upgrade path once.
 
 ## 1. Signing identity
 
 | Item | Value |
 | --- | --- |
-| Keystore | `keystore/release.keystore` (gitignored, **not** in CI) |
+| Keystore | `keystore/release.keystore` (gitignored; CI receives it as `RELEASE_KEYSTORE_BASE64`) |
 | Alias | `zeidex` |
 | Store password | `KEYSTORE_PASSWORD` / `KEY_PASSWORD` env vars (fallback in `app/build.gradle.kts`) |
 | Certificate SHA-256 | `d24bf9dfb3f1b9acb0f48fb1940b3eacc3875cdb19e7869f4b1281fdecb9366e` |
@@ -69,6 +70,14 @@ placeholder digests.
 
 The client refuses a download whose SHA-256 does not match, so publishing a manifest before the
 APK is uploaded is safe: users get a checksum error, not a bad install.
+
+`RELEASE_NOTES.md` in the repository root is the release description. The workflow copies it into
+the release, and edits the notes when the release already exists, so a tag pushed with a stale
+file leaves the previous text in place — write it before tagging.
+
+The Android package in this repository's manifest points `url` at the GitHub release asset, which
+is the only host that currently serves the APK with the right content type, and keeps
+`mirror_url` on `zeidexsoft.com` for when the site is fixed (section 5).
 
 ## 5. Hosting (currently broken outside the repository)
 
