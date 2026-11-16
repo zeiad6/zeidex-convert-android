@@ -43,8 +43,6 @@
     </filter>
 
     <style><![CDATA[
-      .spin-slow { animation: spin 70s linear infinite; transform-box: view-box; transform-origin: 985px 288px; }
-      .spin-comet { animation: spin 9s linear infinite; transform-box: view-box; transform-origin: 985px 288px; }
       .float { animation: float 7s ease-in-out infinite; }
       .float-2 { animation: float 9s ease-in-out infinite 1.2s; }
       .breathe { animation: breathe 6s ease-in-out infinite; }
@@ -56,7 +54,6 @@
       .drift-b { animation: drift 18s ease-in-out infinite 2s; }
       .drift-c { animation: drift 22s ease-in-out infinite 4s; }
 
-      @keyframes spin { to { transform: rotate(360deg); } }
       @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
       @keyframes breathe { 0%, 100% { opacity: 0.55; } 50% { opacity: 0.95; } }
       @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
@@ -74,7 +71,7 @@
         50% { transform: translate(-10px, -14px); opacity: 0.8; }
       }
       @media (prefers-reduced-motion: reduce) {
-        .spin-slow, .spin-comet, .float, .float-2, .breathe, .live, .orbit, .ghost-a, .ghost-b,
+        .float, .float-2, .breathe, .live, .orbit, .ghost-a, .ghost-b,
         .drift-a, .drift-b, .drift-c { animation: none !important; }
       }
     ]]></style>
@@ -123,11 +120,17 @@
 
   <!-- ── conversion ring ─────────────────────────────────────────────── -->
   <g class="float">
-    <circle cx="985" cy="288" r="168" fill="none" stroke="#232B3A" stroke-width="1" stroke-dasharray="1 9" class="spin-slow"/>
+    <g>
+      <animateTransform attributeName="transform" type="rotate" from="0 985 288" to="360 985 288" dur="70s" repeatCount="indefinite"/>
+      <circle cx="985" cy="288" r="168" fill="none" stroke="#232B3A" stroke-width="1" stroke-dasharray="1 9"/>
+    </g>
     <circle cx="985" cy="288" r="168" fill="none" stroke="#1B2230" stroke-width="1"/>
     <circle cx="985" cy="288" r="150" fill="none" stroke="#1C2432" stroke-width="1"/>
-    <circle cx="985" cy="288" r="150" fill="none" stroke="url(#comet)" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="170 772" class="spin-comet" filter="url(#blur2)"/>
-    <circle cx="985" cy="288" r="150" fill="none" stroke="url(#comet)" stroke-width="1.2" stroke-linecap="round" stroke-dasharray="170 772" class="spin-comet"/>
+    <g>
+      <animateTransform attributeName="transform" type="rotate" from="0 985 288" to="360 985 288" dur="9s" repeatCount="indefinite"/>
+      <circle cx="985" cy="288" r="150" fill="none" stroke="url(#comet)" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="170 772" filter="url(#blur2)"/>
+      <circle cx="985" cy="288" r="150" fill="none" stroke="url(#comet)" stroke-width="1.2" stroke-linecap="round" stroke-dasharray="170 772"/>
+    </g>
 
     <!-- centre glow + stacked cards -->
     <ellipse cx="985" cy="292" rx="150" ry="140" fill="url(#cardGlow)" class="breathe"/>
